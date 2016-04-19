@@ -1,0 +1,13 @@
+language: python
+sudo: required
+
+matrix:
+  include:
+    - os: linux
+      dist: trusty
+      python: "2.7"
+    - os: linux
+      dist: trusty
+      python: "3.5"
+
+script: python -m unittest tests
