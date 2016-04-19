@@ -14,3 +14,7 @@ __status__     = "Development"
 __version__    = "0.0.1"
 
 __all__ = []
+
+
+class RPC(object):
+    pass
