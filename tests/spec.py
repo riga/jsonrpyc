@@ -1,13 +1,14 @@
 # -*- coding: utf-8 -*-
 
 
-from .base import TestCase, jsonrpyc
+import unittest
+import jsonrpyc
 
 
 __all__ = ["SpecTestCase"]
 
 
-class SpecTestCase(TestCase):
+class SpecTestCase(unittest.TestCase):
 
     def __init__(self, *args, **kwargs):
         super(SpecTestCase, self).__init__(*args, **kwargs)

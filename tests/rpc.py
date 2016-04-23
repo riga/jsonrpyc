@@ -2,16 +2,15 @@
 
 
 import os
-import time
+import unittest
 from subprocess import Popen, PIPE
-
-from .base import TestCase, jsonrpyc
+import jsonrpyc
 
 
 __all__ = ["RPCTestCase"]
 
 
-class RPCTestCase(TestCase):
+class RPCTestCase(unittest.TestCase):
 
     def __init__(self, *args, **kwargs):
         super(RPCTestCase, self).__init__(*args, **kwargs)

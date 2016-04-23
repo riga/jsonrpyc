@@ -4,10 +4,7 @@
 import os
 import sys
 
-base = os.path.dirname(os.path.abspath(__file__))
-sys.path.append(base)
-
-from base import jsonrpyc
+sys.path.append(os.path.dirname(os.getcwd()))
 
 
 class MyClass(object):
@@ -23,4 +20,6 @@ class MyClass(object):
 
 
 if __name__ == "__main__":
+    import jsonrpyc
+
     rpc = jsonrpyc.RPC(MyClass())
