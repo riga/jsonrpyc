@@ -5,7 +5,7 @@
 import os
 from subprocess import Popen, PIPE
 from distutils.core import setup
-import jsonrpyc as rpc
+import jsonrpyc
 
 
 readme = os.path.join(os.path.dirname(os.path.abspath(__file__)), "README.md")
@@ -37,13 +37,13 @@ classifiers = [
 
 
 setup(
-    name             = rpc.__name__,
-    version          = rpc.__version__,
-    author           = rpc.__author__,
-    description      = rpc.__doc__.strip(),
-    license          = rpc.__license__,
-    url              = rpc.__contact__,
-    py_modules       = [rpc.__name__],
+    name             = jsonrpyc.__name__,
+    version          = jsonrpyc.__version__,
+    author           = jsonrpyc.__author__,
+    description      = jsonrpyc.__doc__.strip(),
+    license          = jsonrpyc.__license__,
+    url              = jsonrpyc.__contact__,
+    py_modules       = [jsonrpyc.__name__],
     keywords         = keywords,
     classifiers      = classifiers,
     long_description = long_description,
