@@ -13,20 +13,13 @@ __license__    = "MIT"
 __status__     = "Development"
 __version__    = "0.0.1"
 
-__all__ = []
+__all__ = ["RPC"]
 
 
+import sys
 import json
-
-
-ERRORS = {
-    -32700: "Parse error",
-    -32600: "Invalid Request",
-    -32601: "Method not found",
-    -32602: "Invalid params",
-    -32603: "Internal error",
-    -32000: "Server error"
-}
+import time
+import threading
 
 
 class Spec(object):
@@ -44,31 +37,19 @@ class Spec(object):
             raise TypeError("method must be a string, got %s (%s)" % (method, type(method)))
 
     @classmethod
-    def check_params(cls, params, allow_empty=False):
-        if allow_empty and params is None:
-            return
-        if not isinstance(params, (list, tuple)):
-            raise TypeError("params must be a list or tuple, got %s (%s)" % (params, type(params)))
-
-    @classmethod
     def check_code(cls, code):
         if not isinstance(code, int):
             raise TypeError("code must be an integer, got %s (%s)" % (id, type(id)))
-        elif code not in ERRORS:
+        elif get_error(code) is None:
             raise KeyError("unknown code, got %s (%s)" % (code, type(code)))
 
     @classmethod
-    def check_message(cls, message, allow_empty=False):
-        if allow_empty and message is None:
-            return
-        if not isinstance(message, str):
-            raise TypeError("message must be a string, got %s (%s)" % (message, type(message)))
-
-    @classmethod
     def request(cls, method, id=None, params=None):
-        cls.check_method(method)
-        cls.check_id(id, allow_empty=True)
-        cls.check_params(params, allow_empty=True)
+        try:
+            cls.check_method(method)
+            cls.check_id(id, allow_empty=True)
+        except Exception as e:
+            raise RPCInvalidRequest(e.message)
 
         req = "{\"jsonrpc\":\"2.0\",\"method\":\"%s\"" % method
 
@@ -76,7 +57,10 @@ class Spec(object):
             req += ",\"id\":%d" % id
 
         if params is not None:
-            req += ",\"params\":%s" % json.dumps(params)
+            try:
+                req += ",\"params\":%s" % json.dumps(params)
+            except Exception as e:
+                raise RPCParseError(e.message)
 
         req += "}"
 
@@ -84,24 +68,35 @@ class Spec(object):
 
     @classmethod
     def response(cls, id, result):
-        cls.check_id(id)
+        try:
+            cls.check_id(id)
+        except Exception as e:
+            raise RPCInvalidRequest(e.message)
 
-        res = "{\"jsonrpc\":\"2.0\",\"id\":%d,\"result\":%s}" % (id, json.dumps(result))
+        try:
+            res = "{\"jsonrpc\":\"2.0\",\"id\":%d,\"result\":%s}" % (id, json.dumps(result))
+        except Exception as e:
+            raise RPCParseError(e.message)
 
         return res
 
     @classmethod
-    def error(cls, id, code, message=None, data=None):
-        cls.check_id(id)
-        cls.check_message(message, allow_empty=True)
+    def error(cls, id, code, data=None):
+        try:
+            cls.check_id(id)
+            cls.check_code(code)
+        except Exception as e:
+            raise RPCInvalidRequest(e.message)
 
-        if message is None:
-            message = ERRORS[code]
+        message = get_error(code).title
 
         err = "{\"code\":%d,\"message\":\"%s\"" % (code, message)
 
         if data is not None:
-            err += ",\"data\":%s}" % json.dumps(data)
+            try:
+                err += ",\"data\":%s}" % json.dumps(data)
+            except Exception as e:
+               raise RPCParseError(e.message)
         else:
             err += "}"
 
