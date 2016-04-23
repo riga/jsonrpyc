@@ -16,7 +16,7 @@ class RPCTestCase(unittest.TestCase):
         super(RPCTestCase, self).__init__(*args, **kwargs)
 
         cwd = os.path.dirname(os.path.abspath(__file__))
-        self.p = Popen(["python", "clients/simple.py"], stdin=PIPE, stdout=PIPE, cwd=cwd)
+        self.p = Popen(["python", "server/simple.py"], stdin=PIPE, stdout=PIPE, cwd=cwd)
 
         self.rpc = jsonrpyc.RPC(stdout=self.p.stdin, stdin=self.p.stdout)
 
