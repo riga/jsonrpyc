@@ -302,6 +302,8 @@ def register_error(cls):
 
     error_map[code] = cls
 
+    return cls
+
 
 def get_error(code):
     if code in error_map_distinct:
