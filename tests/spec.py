@@ -21,6 +21,10 @@ class SpecTestCase(unittest.TestCase):
         req = jsonrpyc.Spec.request("some_method", 18)
         self.assertEqual(req, '{"jsonrpc":"2.0","method":"some_method","id":18}')
 
+    def test_request_with_strid(self):
+        req = jsonrpyc.Spec.request("some_method", "myUuid")
+        self.assertEqual(req, '{"jsonrpc":"2.0","method":"some_method","id":"myUuid"}')
+
     def test_request_with_params(self):
         req = jsonrpyc.Spec.request("some_method", params=[1, 2, True])
         self.assertEqual(req, '{"jsonrpc":"2.0","method":"some_method","params":[1, 2, true]}')
