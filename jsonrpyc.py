@@ -144,8 +144,7 @@ class RPC(object):
 
         params = {"args": args, "kwargs": kwargs}
         req = Spec.request(method, id=id, params=params)
-        self.stdout.write(req + "\n")
-        self.stdout.flush()
+        self._write(req)
 
         if block > 0:
             while True:
@@ -178,16 +177,14 @@ class RPC(object):
             result = method(*req["params"]["args"], **req["params"]["kwargs"])
             if "id" in req:
                 res = Spec.response(req["id"], result)
-                self.stdout.write(res + "\n")
-                self.stdout.flush()
+                self._write(res)
         except Exception as e:
             if "id" in req:
                 if isinstance(e, RPCError):
                     err = Spec.error(req["id"], e.code, e.data)
                 else:
                     err = Spec.error(req["id"], -32603, e.message)
-                self.stdout.write(err + "\n")
-                self.stdout.flush()
+                self._write(err)
 
     def _handle_response(self, res):
         if res["id"] in self._results:
@@ -217,6 +214,10 @@ class RPC(object):
         else:
             return obj
         raise RPCMethodNotFound(data=method)
+
+    def _write(self, s):
+        self.stdout.write(b"%s\n" % s)
+        self.stdout.flush()
 
 
 class Watchdog(threading.Thread):
