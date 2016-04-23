@@ -12,7 +12,7 @@ __credits__    = ["Marcel Rieger"]
 __contact__    = "https://github.com/riga/jsonrpyc"
 __license__    = "MIT"
 __status__     = "Development"
-__version__    = "0.0.1"
+__version__    = "1.0.0"
 
 __all__ = ["RPC"]
 
