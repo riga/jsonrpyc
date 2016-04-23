@@ -46,12 +46,12 @@ class Spec(object):
     def check_id(cls, id, allow_empty=False):
         """
         Value check for *id* entries. When *allow_empty* is *True*, *id* is allowed to be *None*.
-        Raises a *TypeError* when *id* is not an interger.
+        Raises a *TypeError* when *id* is not an interger and no string.
         """
         if allow_empty and id is None:
             return
-        if not isinstance(id, int):
-            raise TypeError("id must be an integer, got %s (%s)" % (id, type(id)))
+        if not isinstance(id, (int, str)):
+            raise TypeError("id must be an integer or string, got %s (%s)" % (id, type(id)))
 
     @classmethod
     def check_method(cls, method):
@@ -76,7 +76,7 @@ class Spec(object):
     def request(cls, method, id=None, params=None):
         """
         Creates the string representation of a request that calls *method* with optional *params*.
-        When *id* is *None*, the request is considered a message.
+        When *id* is *None*, the request is considered a notification.
         """
         try:
             cls.check_method(method)
@@ -87,7 +87,9 @@ class Spec(object):
         req = "{\"jsonrpc\":\"2.0\",\"method\":\"%s\"" % method
 
         if id is not None:
-            req += ",\"id\":%d" % id
+            if isinstance(id, str):
+                id = '"%s"' % id
+            req += ",\"id\":%s" % id
 
         if params is not None:
             try:
@@ -110,8 +112,11 @@ class Spec(object):
         except Exception as e:
             raise RPCInvalidRequest(str(e))
 
+        if isinstance(id, str):
+            id = '"%s"' % id
+
         try:
-            res = "{\"jsonrpc\":\"2.0\",\"id\":%d,\"result\":%s}" % (id, json.dumps(result))
+            res = "{\"jsonrpc\":\"2.0\",\"id\":%s,\"result\":%s}" % (id, json.dumps(result))
         except Exception as e:
             raise RPCParseError(str(e))
 
@@ -130,6 +135,9 @@ class Spec(object):
         except Exception as e:
             raise RPCInvalidRequest(str(e))
 
+        if isinstance(id, str):
+            id = '"%s"' % id
+
         message = get_error(code).title
 
         err = "{\"code\":%d,\"message\":\"%s\"" % (code, message)
@@ -142,7 +150,7 @@ class Spec(object):
         else:
             err += "}"
 
-        err = "{\"jsonrpc\":\"2.0\",\"id\":%d,\"error\":%s}" % (id, err)
+        err = "{\"jsonrpc\":\"2.0\",\"id\":%s,\"error\":%s}" % (id, err)
 
         return err
 
@@ -241,7 +249,7 @@ class RPC(object):
         the remote call. When *block* is larger than *0*, the calling thread is blocked until the
         result is received. In this case, *block* will be the poll interval. This mechanism emulates
         synchronuous return value behavior. When both, *callback* is *None* and *block* is *0* or
-        less, the request is considered a message and the remote RPC instance will not send a
+        less, the request is considered a notification and the remote RPC instance will not send a
         response.
         """
         if kwargs is None:
