@@ -150,10 +150,10 @@ class Spec(object):
 class RPC(object):
     """
     The main class of *jsonrpyc*. Instances of this class basically wrap an input stream *stdin* and
-    an output stream *stdout* in order to communicate with other *objects*, *processes* or
-    *services* that implement the JSON-RPC 2.0 specs. RPC instances may wrap a *target* object.
-    Incomming requests will be routed to methods of this object whose result might be sent back as a
-    response. Example implementation:
+    an output stream *stdout* in order to communicate with other *services*. A service is not even
+    forced to be written in Python as long as it strictly implements the JSON-RPC 2.0 specs. RPC
+    instances may wrap a *target* object. Incomming requests will be routed to methods of this
+    object whose result might be sent back as a response. Example implementation:
 
     *server.py*
 
