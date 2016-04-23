@@ -18,6 +18,7 @@ __all__ = ["RPC"]
 
 import sys
 import json
+import io
 import time
 import threading
 
@@ -49,7 +50,7 @@ class Spec(object):
             cls.check_method(method)
             cls.check_id(id, allow_empty=True)
         except Exception as e:
-            raise RPCInvalidRequest(e.message)
+            raise RPCInvalidRequest(str(e))
 
         req = "{\"jsonrpc\":\"2.0\",\"method\":\"%s\"" % method
 
@@ -60,7 +61,7 @@ class Spec(object):
             try:
                 req += ",\"params\":%s" % json.dumps(params)
             except Exception as e:
-                raise RPCParseError(e.message)
+                raise RPCParseError(str(e))
 
         req += "}"
 
@@ -71,12 +72,12 @@ class Spec(object):
         try:
             cls.check_id(id)
         except Exception as e:
-            raise RPCInvalidRequest(e.message)
+            raise RPCInvalidRequest(str(e))
 
         try:
             res = "{\"jsonrpc\":\"2.0\",\"id\":%d,\"result\":%s}" % (id, json.dumps(result))
         except Exception as e:
-            raise RPCParseError(e.message)
+            raise RPCParseError(str(e))
 
         return res
 
@@ -86,7 +87,7 @@ class Spec(object):
             cls.check_id(id)
             cls.check_code(code)
         except Exception as e:
-            raise RPCInvalidRequest(e.message)
+            raise RPCInvalidRequest(str(e))
 
         message = get_error(code).title
 
@@ -96,7 +97,7 @@ class Spec(object):
             try:
                 err += ",\"data\":%s}" % json.dumps(data)
             except Exception as e:
-               raise RPCParseError(e.message)
+               raise RPCParseError(str(e))
         else:
             err += "}"
 
@@ -113,8 +114,12 @@ class RPC(object):
         super(RPC, self).__init__()
 
         self.target = target
-        self.stdin = sys.stdin if stdin is None else stdin
-        self.stdout = sys.stdout if stdout is None else stdout
+
+        stdin = sys.stdin if stdin is None else stdin
+        stdout = sys.stdout if stdout is None else stdout
+
+        self.stdin = io.open(stdin.fileno(), "rb")
+        self.stdout = io.open(stdout.fileno(), "wb")
 
         self._i = -1
         self._callbacks = {}
@@ -183,7 +188,7 @@ class RPC(object):
                 if isinstance(e, RPCError):
                     err = Spec.error(req["id"], e.code, e.data)
                 else:
-                    err = Spec.error(req["id"], -32603, e.message)
+                    err = Spec.error(req["id"], -32603, str(e))
                 self._write(err)
 
     def _handle_response(self, res):
@@ -216,7 +221,7 @@ class RPC(object):
         raise RPCMethodNotFound(data=method)
 
     def _write(self, s):
-        self.stdout.write(b"%s\n" % s)
+        self.stdout.write(bytearray(s + "\n", "utf-8"))
         self.stdout.flush()
 
 
@@ -248,14 +253,14 @@ class Watchdog(threading.Thread):
                     last_pos = stream.tell()
                     stream.seek(cur_pos)
                     for line in lines:
-                        line = line.strip()
+                        line = line.decode("utf-8").strip()
                         if line:
                             self.rpc._handle(line)
                 else:
                     self._stop.wait(self.interval)
         else:
             while not self._stop.is_set():
-                line = stream.readline().rstrip()
+                line = stream.readline().decode("utf-8").rstrip()
                 if line:
                     self.rpc._handle(line)
                 else:
@@ -271,10 +276,14 @@ class RPCError(Exception):
         message = "%s (%s)" % (self.title, self.code)
         if data is not None:
             message += ", data: " + str(data)
+        self.message = message
 
         super(RPCError, self).__init__(message)
 
         self.data = data
+
+    def __str__(self):
+        return self.message
 
 
 error_map_distinct = {}
