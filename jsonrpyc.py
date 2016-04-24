@@ -191,7 +191,9 @@ class RPC(object):
             if err:
                 throw err
             print("callback got: " + res)
-        rpc("greet", args=("John",))
+
+        rpc("greet", args=("John",), callback=cb)
+
         # cb is called asynchronously which prints
         # => "callback got: Hi, John!"
 
