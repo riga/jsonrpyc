@@ -371,7 +371,7 @@ class RPC(object):
            # => <bound method MyClassA.bar ...>
 
            rpc._route("b.foo")
-           # => <bound method MyClassb.foo ...>
+           # => <bound method MyClassB.foo ...>
         """
         obj = self.target
         for part in method.split("."):
