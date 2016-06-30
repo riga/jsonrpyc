@@ -25,7 +25,7 @@ jsonrpc.RPC(MyTarget())
 ```
 
 
-##### ``async_client.py``
+##### ``client.py``
 
 ```python
 import jsonrpyc
@@ -33,6 +33,18 @@ from subprocess import Popen, PIPE
 
 p = Popen(["python", "server.py"], stdin=PIPE, stdout=PIPE)
 rpc = jsonrpyc.RPC(stdout=p.stdin, stdin=p.stdout)
+
+#
+# sync usage
+#
+
+print(rpc("greet", args=("John",), block=0.1))
+# => "Hi, John!"
+
+
+#
+# async usage
+#
 
 def cb(err, res=None):
     if err:
@@ -46,21 +58,7 @@ rpc("greet", args=("John",), callback=cb)
 ```
 
 
-##### ``sync_client.py``
-
-```python
-import jsonrpyc
-from subprocess import Popen, PIPE
-
-p = Popen(["python", "server.py"], stdin=PIPE, stdout=PIPE)
-rpc = jsonrpyc.RPC(stdout=p.stdin, stdin=p.stdout)
-
-print(rpc("greet", args=("John",), block=0.1))
-# => "Hi, John!"
-```
-
-
-## Installation and dependencies
+## Installation
 
 Via [pip](https://pypi.python.org/pypi/jsonrpyc)
 
