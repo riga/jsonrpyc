@@ -48,7 +48,7 @@ print(rpc("greet", args=("John",), block=0.1))
 
 def cb(err, res=None):
     if err:
-        throw err
+        raise err
     print("callback got: " + res)
 
 rpc("greet", args=("John",), callback=cb)
