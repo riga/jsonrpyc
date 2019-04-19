@@ -15,7 +15,7 @@ if os.path.isfile(readme):
     out, err = p.communicate()
     if p.returncode != 0:
         raise Exception("pandoc conversion failed: " + err)
-    long_description = out
+    long_description = out.decode("utf-8")
 else:
     long_description = ""
 
