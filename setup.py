@@ -35,6 +35,7 @@ setup(
     name=jsonrpyc.__name__,
     version=jsonrpyc.__version__,
     author=jsonrpyc.__author__,
+    author_email=sn.__email__,
     description=jsonrpyc.__doc__.strip().split("\n")[0].strip(),
     license=jsonrpyc.__license__,
     url=jsonrpyc.__contact__,
