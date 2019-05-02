@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+# coding: utf-8
 
 """
 Minimal python RPC implementation in a single file based on the JSON-RPC 2.0 specs from
@@ -6,14 +6,13 @@ http://www.jsonrpc.org/specification.
 """
 
 
-__author__     = "Marcel Rieger"
-__copyright__  = "Copyright 2016, Marcel Rieger"
-__credits__    = ["Marcel Rieger"]
-__contact__    = "https://github.com/riga/jsonrpyc"
-__license__    = "MIT"
-__status__     = "Development"
-__version__    = "1.0.2"
-
+__author__ = "Marcel Rieger"
+__copyright__ = "Copyright 2016-2019, Marcel Rieger"
+__credits__ = ["Marcel Rieger"]
+__contact__ = "https://github.com/riga/jsonrpyc"
+__license__ = "BSD-3-Clause"
+__status__ = "Development"
+__version__ = "1.0.2"
 __all__ = ["RPC"]
 
 
@@ -146,7 +145,7 @@ class Spec(object):
             try:
                 err += ",\"data\":%s}" % json.dumps(data)
             except Exception as e:
-               raise RPCParseError(str(e))
+                raise RPCParseError(str(e))
         else:
             err += "}"
 
@@ -497,8 +496,12 @@ error_map_range = {}
 
 
 def is_range(code):
-    return isinstance(code, tuple) and len(code) == 2 and all(isinstance(i, int) for i in code) \
-           and code[0] < code[1]
+    return (
+        isinstance(code, tuple) and
+        len(code) == 2 and
+        all(isinstance(i, int) for i in code) and
+        code[0] < code[1]
+    )
 
 
 def register_error(cls):

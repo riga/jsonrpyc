@@ -1,5 +1,6 @@
-language: python
 sudo: required
+
+language: python
 
 matrix:
   include:
@@ -8,6 +9,6 @@ matrix:
       python: "2.7"
     - os: linux
       dist: trusty
-      python: "3.5"
+      python: "3.6"
 
 script: python -m unittest tests

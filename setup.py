@@ -1,26 +1,17 @@
 
-# -*- coding: utf-8 -*-
+# coding: utf-8
 
 
 import os
-from subprocess import Popen, PIPE
-from distutils.core import setup
+from setuptools import setup
+
 import jsonrpyc
 
 
-readme = os.path.join(os.path.dirname(os.path.abspath(__file__)), "README.md")
-if os.path.isfile(readme):
-    cmd = "pandoc --from=markdown --to=rst " + readme
-    p = Popen(cmd, stdout=PIPE, stderr=PIPE, shell=True, executable="/bin/bash")
-    out, err = p.communicate()
-    if p.returncode != 0:
-        raise Exception("pandoc conversion failed: " + err)
-    long_description = out
-else:
-    long_description = ""
+this_dir = os.path.dirname(os.path.abspath(__file__))
 
 keywords = [
-    "rpc", "json", "json-rpc", "2.0"
+    "rpc", "json", "json-rpc", "2.0",
 ]
 
 classifiers = [
@@ -29,23 +20,29 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Development Status :: 4 - Beta",
     "Operating System :: OS Independent",
-    "License :: OSI Approved :: MIT License",
+    "License :: OSI Approved :: BSD License",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
     "Intended Audience :: Information Technology"
 ]
 
+# read the readme file
+with open(os.path.join(this_dir, "README.md"), "r") as f:
+    long_description = f.read()
+
 
 setup(
-    name             = jsonrpyc.__name__,
-    version          = jsonrpyc.__version__,
-    author           = jsonrpyc.__author__,
-    description      = jsonrpyc.__doc__.strip(),
-    license          = jsonrpyc.__license__,
-    url              = jsonrpyc.__contact__,
-    py_modules       = [jsonrpyc.__name__],
-    keywords         = keywords,
-    classifiers      = classifiers,
-    long_description = long_description,
-    data_files       = ["LICENSE"]
+    name=jsonrpyc.__name__,
+    version=jsonrpyc.__version__,
+    author=jsonrpyc.__author__,
+    description=jsonrpyc.__doc__.strip().split("\n")[0].strip(),
+    license=jsonrpyc.__license__,
+    url=jsonrpyc.__contact__,
+    keywords=keywords,
+    classifiers=classifiers,
+    long_description=long_description,
+    long_description_content_type="text/markdown",
+    python_requires=">=2.7",
+    zip_safe=False,
+    py_modules=[jsonrpyc.__name__],
 )
