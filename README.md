@@ -1,7 +1,7 @@
 <img src="https://raw.githubusercontent.com/riga/jsonrpyc/master/logo.png" alt="jsonrpyc logo" width="250"/>
--
 
-[![Build Status](https://travis-ci.org/riga/jsonrpyc.svg?branch=master)](https://travis-ci.org/riga/jsonrpyc) [![Documentation Status](https://readthedocs.org/projects/jsonrpyc/badge/?version=latest)](http://jsonrpyc.readthedocs.org/en/latest/?badge=latest)
+[![Build Status](https://travis-ci.org/riga/jsonrpyc.svg?branch=master)](https://travis-ci.org/riga/jsonrpyc) [![Documentation Status](https://readthedocs.org/projects/jsonrpyc/badge/?version=latest)](http://jsonrpyc.readthedocs.org/en/latest/?badge=latest) [![Package Status](https://img.shields.io/pypi/v/jsonrpyc.svg?style=flat)](https://pypi.python.org/pypi/jsonrpyc) [![License](https://img.shields.io/github/license/riga/jsonrpyc.svg)](https://github.com/riga/jsonrpyc/blob/master/LICENSE)
+
 
 Minimal python RPC implementation in a single file based on the [JSON-RPC 2.0 specs](http://www.jsonrpc.org/specification).
 
