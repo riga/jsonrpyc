@@ -145,7 +145,7 @@ class Spec(object):
             try:
                 err += ",\"data\":%s}" % json.dumps(data)
             except Exception as e:
-               raise RPCParseError(str(e))
+                raise RPCParseError(str(e))
         else:
             err += "}"
 
@@ -496,8 +496,12 @@ error_map_range = {}
 
 
 def is_range(code):
-    return isinstance(code, tuple) and len(code) == 2 and all(isinstance(i, int) for i in code) \
-           and code[0] < code[1]
+    return (
+        isinstance(code, tuple) and
+        len(code) == 2 and
+        all(isinstance(i, int) for i in code) and
+        code[0] < code[1]
+    )
 
 
 def register_error(cls):
