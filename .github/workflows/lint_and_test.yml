@@ -63,7 +63,7 @@ jobs:
           persist-credentials: false
 
       - name: Pull docker image 🐳
-        run: docker pull riga/law:py${{ matrix.python }}
+        run: docker pull riga/py-base:${{ matrix.python }}
 
       - name: Test 🎢
         run: docker run --rm -t -v $( pwd ):/jsonrpyc -w /jsonrpyc riga/py-base:${{ matrix.python }} python -m unittest tests
