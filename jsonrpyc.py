@@ -460,8 +460,6 @@ class Watchdog(threading.Thread):
        The thread's daemon flag.
     """
 
-    _locks = {}
-
     def __init__(self, rpc, name="watchdog", interval=0.1, daemon=False, start=True):
         super(Watchdog, self).__init__()
 
@@ -497,36 +495,29 @@ class Watchdog(threading.Thread):
         if not self.rpc.stdin or self.rpc.stdin.closed:
             return
 
-        # create a new or get an existing thread lock, depending in the stdin of the rpc object
-        if self.rpc.stdin not in self._locks:
-            self._locks[self.rpc.stdin] = threading.RLock()
-        lock = self._locks[self.rpc.stdin]
-
         # read new incoming lines
         last_pos = 0
         while not self._stop.is_set():
             lines = None
 
-            # lock all stream ops
-            with lock:
-                # stop when stdin is closed
-                if self.rpc.stdin.closed:
-                    break
+            # stop when stdin is closed
+            if self.rpc.stdin.closed:
+                break
 
-                # read from stdin depending on whether it is a tty or not
-                if self.rpc.stdin.isatty():
-                    cur_pos = self.rpc.stdin.tell()
-                    if cur_pos != last_pos:
-                        self.rpc.stdin.seek(last_pos)
-                        lines = self.rpc.stdin.readlines()
-                        last_pos = self.rpc.stdin.tell()
-                        self.rpc.stdin.seek(cur_pos)
-                else:
-                    try:
-                        lines = [self.rpc.stdin.readline()]
-                    except IOError:
-                        # prevent residual race conditions occurring when stdin is closed externally
-                        pass
+            # read from stdin depending on whether it is a tty or not
+            if self.rpc.stdin.isatty():
+                cur_pos = self.rpc.stdin.tell()
+                if cur_pos != last_pos:
+                    self.rpc.stdin.seek(last_pos)
+                    lines = self.rpc.stdin.readlines()
+                    last_pos = self.rpc.stdin.tell()
+                    self.rpc.stdin.seek(cur_pos)
+            else:
+                try:
+                    lines = [self.rpc.stdin.readline()]
+                except IOError:
+                    # prevent residual race conditions occurring when stdin is closed externally
+                    pass
 
             # handle new lines if any
             if lines:
