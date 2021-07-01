@@ -54,7 +54,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python: ["27", "37", "38", "39"]
+        python: ["2.7", "3.7", "3.8", "3.9"]
     name: test (python ${{ matrix.python }})
     steps:
       - name: Checkout 🛎️
