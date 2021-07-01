@@ -8,7 +8,10 @@ Minimal python RPC implementation in a single file based on the [JSON-RPC 2.0 sp
 
 ## Usage
 
-``jsonrpyc.RPC`` instances basically wrap an input stream and an output stream in order to communicate with other *services*. A service is not even forced to be written in Python as long as it strictly implements the JSON-RPC 2.0 specs. A suitable implementation for NodeJs is [node-json-rpc](https://github.com/riga/node-json-rpc). A ``jsonrpyc.RPC`` instance may wrap a *target* object. Incomming requests will be routed to methods of this object whose result might be sent back as a response. Example implementation:
+``jsonrpyc.RPC`` instances basically wrap an input stream and an output stream in order to communicate with other *services*.
+A service is not even forced to be written in Python as long as it strictly implements the JSON-RPC 2.0 specs.
+A suitable implementation for NodeJs is [node-json-rpc](https://github.com/riga/node-json-rpc). A ``jsonrpyc.RPC`` instance may wrap a *target* object.
+Incomming requests will be routed to methods of this object whose result might be sent back as a response. Example implementation:
 
 
 ##### ``server.py``
@@ -33,6 +36,7 @@ from subprocess import Popen, PIPE
 
 p = Popen(["python", "server.py"], stdin=PIPE, stdout=PIPE)
 rpc = jsonrpyc.RPC(stdout=p.stdin, stdin=p.stdout)
+
 
 #
 # sync usage
@@ -81,7 +85,8 @@ or by simply copying the file into your project.
 
 ## Contributing
 
-If you like to contribute to jsonrpyc, I'm happy to receive pull requests. Just make sure to add a new test cases and run them via:
+If you like to contribute to jsonrpyc, I'm happy to receive pull requests.
+Just make sure to add new test cases and run them via:
 
 ```bash
 > python -m unittest tests
