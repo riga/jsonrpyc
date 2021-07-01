@@ -56,14 +56,13 @@ jobs:
       matrix:
         python: ["27", "37", "38", "39"]
     name: test (python ${{ matrix.python }})
+    container:
+      image: riga/py-base:{{ matrix.python }}
     steps:
       - name: Checkout 🛎️
         uses: actions/checkout@v2
         with:
           persist-credentials: false
 
-      - name: Pull docker image 🐳
-        run: docker pull riga/law:py${{ matrix.python }}
-
       - name: Test 🎢
-        run: docker run --rm -t -v "$PWD":/jsonrpyc -w /jsonrpyc riga/py-base:{{ matrix.python }} python -m unittest tests
+        run: python -m unittest tests
