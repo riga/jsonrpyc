@@ -66,5 +66,4 @@ jobs:
         run: docker pull riga/law:py${{ matrix.python }}
 
       - name: Test 🎢
-        run: ./tests/docker.sh riga/law:py${{ matrix.python }}
         run: docker run --rm -ti -v "$PWD":/jsonrpyc -w /jsonrpyc riga/py-base:{{ matrix.python }} python -m unittest tests
