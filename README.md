@@ -55,6 +55,16 @@ rpc("greet", args=("John",), callback=cb)
 
 # cb is called asynchronously which prints
 # => "callback got: Hi, John!"
+
+
+#
+# shutdown
+#
+
+p.stdin.close()
+p.stdout.close()
+p.terminate()
+p.wait()
 ```
 
 

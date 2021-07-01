@@ -26,9 +26,15 @@ classifiers = [
     "Intended Audience :: Information Technology"
 ]
 
+
 # read the readme file
 with open(os.path.join(this_dir, "README.md"), "r") as f:
     long_description = f.read()
+
+
+# load installation requirements
+with open(os.path.join(this_dir, "requirements.txt"), "r") as f:
+    install_requires = [line.strip() for line in f.readlines() if line.strip()]
 
 
 setup(

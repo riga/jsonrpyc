@@ -1,9 +1,14 @@
-# -*- coding: utf-8 -*-
+# coding: utf-8
+
+"""
+Tests of the RPC functionality.
+"""
 
 
 import os
 import unittest
 from subprocess import Popen, PIPE
+
 import jsonrpyc
 
 
@@ -16,17 +21,21 @@ class RPCTestCase(unittest.TestCase):
         super(RPCTestCase, self).__init__(*args, **kwargs)
 
         cwd = os.path.dirname(os.path.abspath(__file__))
-        self.p = Popen(["python", "server/simple.py"], stdin=PIPE, stdout=PIPE, cwd=cwd)
+        self.p = Popen(["python", "server/simple.py", "start"], stdin=PIPE, stdout=PIPE, cwd=cwd)
 
         self.rpc = jsonrpyc.RPC(stdout=self.p.stdin, stdin=self.p.stdout)
 
     def __del__(self):
+        self.p.stdin.close()
+        self.p.stdout.close()
         self.p.terminate()
+        self.p.wait()
 
     def test_request_wo_args(self):
         def cb(err, one):
             self.assertEqual(err, None)
             self.assertEqual(one, 1)
+
         self.rpc("one", callback=cb)
 
         self.assertEqual(self.rpc("one", block=0.1), 1)
@@ -35,6 +44,7 @@ class RPCTestCase(unittest.TestCase):
         def cb(err, twice):
             self.assertEqual(err, None)
             self.assertEqual(twice, 84)
+
         self.rpc("twice", args=(42,), callback=cb)
 
         self.assertEqual(self.rpc("twice", args=(42,), block=0.1), 84)
@@ -46,6 +56,7 @@ class RPCTestCase(unittest.TestCase):
         def cb(err, n):
             self.assertEqual(err, None)
             self.assertEqual(n, 5)
+
         self.rpc("arglen", args=args, kwargs=kwargs, callback=cb)
 
         self.assertEqual(self.rpc("arglen", args=args, kwargs=kwargs, block=0.1), 5)
@@ -53,6 +64,7 @@ class RPCTestCase(unittest.TestCase):
     def test_request_error(self):
         def cb(err, *args):
             self.assertIsInstance(err, jsonrpyc.RPCInternalError)
+
         self.rpc("one", args=(27,), callback=cb)
 
         err = None

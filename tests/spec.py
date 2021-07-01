@@ -1,4 +1,8 @@
-# -*- coding: utf-8 -*-
+# coding: utf-8
+
+"""
+Test of the Spec methods.
+"""
 
 
 import unittest
