@@ -1,27 +1,26 @@
 # coding: utf-8
 
-"""
-Minimal python RPC implementation in a single file based on the JSON-RPC 2.0 specs from
-http://www.jsonrpc.org/specification.
-"""
-
-
-__author__ = "Marcel Rieger"
-__email__ = "python-jsonrpyc@googlegroups.com"
-__copyright__ = "Copyright 2016-2023, Marcel Rieger"
-__credits__ = ["Marcel Rieger"]
-__contact__ = "https://github.com/riga/jsonrpyc"
-__license__ = "BSD-3-Clause"
-__status__ = "Development"
-__version__ = "1.1.1"
-__all__ = ["RPC"]
-
+from __future__ import annotations
 
 import sys
 import json
 import io
 import time
 import threading
+from typing import Any, Callable
+
+# package infos
+from jsonrpyc.__meta__ import (  # noqa
+    __doc__,
+    __author__,
+    __email__,
+    __copyright__,
+    __credits__,
+    __contact__,
+    __license__,
+    __status__,
+    __version__,
+)
 
 
 class Spec(object):
@@ -43,36 +42,41 @@ class Spec(object):
     """
 
     @classmethod
-    def check_id(cls, id, allow_empty=False):
+    def check_id(cls, id: str | int | None, allow_empty: bool = False) -> None:
         """
         Value check for *id* entries. When *allow_empty* is *True*, *id* is allowed to be *None*.
         Raises a *TypeError* when *id* is neither an integer nor a string.
         """
         if (id is not None or not allow_empty) and not isinstance(id, (int, str)):
-            raise TypeError("id must be an integer or string, got {} ({})".format(id, type(id)))
+            raise TypeError(f"id must be an integer or string, got {id} ({type(id)})")
 
     @classmethod
-    def check_method(cls, method):
+    def check_method(cls, method: str) -> None:
         """
         Value check for *method* entries. Raises a *TypeError* when *method* is not a string.
         """
         if not isinstance(method, str):
-            raise TypeError("method must be a string, got {} ({})".format(method, type(method)))
+            raise TypeError(f"method must be a string, got {method} ({type(method)})")
 
     @classmethod
-    def check_code(cls, code):
+    def check_code(cls, code: int) -> None:
         """
         Value check for *code* entries. Raises a *TypeError* when *code* is not an integer, or a
         *KeyError* when there is no :py:class:`RPCError` subclass registered for that *code*.
         """
         if not isinstance(code, int):
-            raise TypeError("code must be an integer, got {} ({})".format(id, type(id)))
+            raise TypeError(f"code must be an integer, got {code} ({type(code)})")
 
         if not get_error(code):
-            raise ValueError("unknown code, got {} ({})".format(code, type(code)))
+            raise ValueError(f"unknown code, got {code} ({type(code)})")
 
     @classmethod
-    def request(cls, method, id=None, params=None):
+    def request(
+        cls,
+        method: str,
+        id: str | int | None = None,
+        params: dict[str, Any] | None = None,
+    ) -> str:
         """
         Creates the string representation of a request that calls *method* with optional *params*
         which are encoded by ``json.dumps``. When *id* is *None*, the request is considered a
@@ -85,19 +89,19 @@ class Spec(object):
             raise RPCInvalidRequest(str(e))
 
         # start building the request string
-        req = "{{\"jsonrpc\":\"2.0\",\"method\":\"{}\"".format(method)
+        req = f"{{\"jsonrpc\":\"2.0\",\"method\":\"{method}\""
 
         # add the id when given
         if id is not None:
             # encode string ids
             if isinstance(id, str):
                 id = json.dumps(id)
-            req += ",\"id\":{}".format(id)
+            req += f",\"id\":{id}"
 
         # add parameters when given
         if params is not None:
             try:
-                req += ",\"params\":{}".format(json.dumps(params))
+                req += f",\"params\":{json.dumps(params)}"
             except Exception as e:
                 raise RPCParseError(str(e))
 
@@ -107,7 +111,7 @@ class Spec(object):
         return req
 
     @classmethod
-    def response(cls, id, result):
+    def response(cls, id: str | int | None, result: Any) -> str:
         """
         Creates the string representation of a respone that was triggered by a request with *id*.
         A *result* is required, even if it is *None*.
@@ -123,14 +127,14 @@ class Spec(object):
 
         # build the response string
         try:
-            res = "{{\"jsonrpc\":\"2.0\",\"id\":{},\"result\":{}}}".format(id, json.dumps(result))
+            res = f"{{\"jsonrpc\":\"2.0\",\"id\":{id},\"result\":{json.dumps(result)}}}"
         except Exception as e:
             raise RPCParseError(str(e))
 
         return res
 
     @classmethod
-    def error(cls, id, code, data=None):
+    def error(cls, id: str | int | None, code: int, data: dict | None = None) -> str:
         """
         Creates the string representation of an error that occured while processing a request with
         *id*. *code* must lead to a registered :py:class:`RPCError`. *data* might contain
@@ -144,12 +148,12 @@ class Spec(object):
 
         # build the inner error data
         message = get_error(code).title
-        err_data = "{{\"code\":{},\"message\":\"{}\"".format(code, message)
+        err_data = f"{{\"code\":{code},\"message\":\"{message}\""
 
         # insert data when given
         if data is not None:
             try:
-                err_data += ",\"data\":{}}}".format(json.dumps(data))
+                err_data += f",\"data\":{json.dumps(data)}}}"
             except Exception as e:
                 raise RPCParseError(str(e))
         else:
@@ -160,7 +164,7 @@ class Spec(object):
             id = json.dumps(id)
 
         # start building the error string
-        err = "{{\"jsonrpc\":\"2.0\",\"id\":{},\"error\":{}}}".format(id, err_data)
+        err = f"{{\"jsonrpc\":\"2.0\",\"id\":{id},\"error\":{err_data}}}"
 
         return err
 
@@ -186,7 +190,7 @@ class RPC(object):
             def greet(self, name):
                 return f"Hi, {name}!"
 
-       jsonrpc.RPC(MyTarget())
+        jsonrpc.RPC(MyTarget())
 
     *client.py*
 
@@ -221,27 +225,34 @@ class RPC(object):
 
     .. py:attribute:: target
 
-       The wrapped target object. Might be *None* when no object is wrapped, e.g. for the *client*
-       RPC instance.
+        The wrapped target object. Might be *None* when no object is wrapped, e.g. for the *client*
+        RPC instance.
 
     .. py:attribute:: stdin
 
-       The input stream, re-opened with ``"rb"``.
+        The input stream, re-opened with ``"rb"``.
 
     .. py:attribute:: stdout
 
-       The output stream, re-opened with ``"wb"``.
+        The output stream, re-opened with ``"wb"``.
 
     .. py:attribute:: watch
 
-       The :py:class:`Watchdog` instance that optionally watches *stdin* and dispatches incoming
-       requests.
+        The :py:class:`Watchdog` instance that optionally watches *stdin* and dispatches incoming
+        requests.
     """
 
     EMPTY_RESULT = object()
 
-    def __init__(self, target=None, stdin=None, stdout=None, watch=True, **kwargs):
-        super(RPC, self).__init__()
+    def __init__(
+        self: RPC,
+        target: Any | None = None,
+        stdin: io.TextIOBase | None = None,
+        stdout: io.TextIOBase | None = None,
+        watch: bool = True,
+        **kwargs,
+    ) -> None:
+        super().__init__()
 
         # the wrapped target object
         self.target = target
@@ -262,18 +273,25 @@ class RPC(object):
         kwargs.setdefault("daemon", target is None)
         self.watchdog = Watchdog(self, **kwargs)
 
-    def __del__(self):
+    def __del__(self: RPC) -> None:
         watchdog = getattr(self, "watchdog", None)
         if watchdog:
             watchdog.stop()
 
-    def __call__(self, *args, **kwargs):
+    def __call__(self: RPC, *args, **kwargs) -> None:
         """
         Shorthand for :py:meth:`call`.
         """
         return self.call(*args, **kwargs)
 
-    def call(self, method, args=(), kwargs=None, callback=None, block=0):
+    def call(
+        self: RPC,
+        method: str,
+        args: tuple[Any] = (),
+        kwargs: dict | None = None,
+        callback: Callable | None = None,
+        block: int = 0,
+    ) -> None:
         """
         Performs an actual remote procedure call by writing a request representation (a string) to
         the output stream. The remote RPC instance uses *method* to route to the actual method to
@@ -317,11 +335,10 @@ class RPC(object):
                     del self._results[id]
                     if isinstance(result, Exception):
                         raise result
-                    else:
-                        return result
+                    return result
                 time.sleep(block)
 
-    def _handle(self, line):
+    def _handle(self: RPC, line: str) -> None:
         """
         Handles an incoming *line* and dispatches the parsed object to the request, response, or
         error handlers.
@@ -339,7 +356,7 @@ class RPC(object):
             # error
             self._handle_error(obj)
 
-    def _handle_request(self, req):
+    def _handle_request(self: RPC, req: dict[str, Any]) -> None:
         """
         Handles an incoming request *req*. When it containes an id, a response or error is sent
         back.
@@ -358,7 +375,7 @@ class RPC(object):
                     err = Spec.error(req["id"], -32603, str(e))
                 self._write(err)
 
-    def _handle_response(self, res):
+    def _handle_response(self: RPC, res: dict[str, Any]) -> None:
         """
         Handles an incoming successful response *res*. Blocking calls are resolved and registered
         callbacks are invoked with the first error argument being set to *None*.
@@ -373,7 +390,7 @@ class RPC(object):
             del self._callbacks[res["id"]]
             callback(None, res["result"])
 
-    def _handle_error(self, res):
+    def _handle_error(self: RPC, res: dict[str, Any]) -> None:
         """
         Handles an incoming failed response *res*. Blocking calls throw an exception and
         registered callbacks are invoked with an exception and the second result argument set to
@@ -393,7 +410,7 @@ class RPC(object):
             del self._callbacks[res["id"]]
             callback(error, None)
 
-    def _route(self, method):
+    def _route(self: RPC, method: str) -> Any:
         """
         Returnes the method of the wrapped target object to be called when *method* is requested.
         Example:
@@ -430,7 +447,7 @@ class RPC(object):
 
         raise RPCMethodNotFound(data=method)
 
-    def _write(self, s):
+    def _write(self: RPC, s: str) -> None:
         """
         Writes a string *s* to the output stream.
         """
@@ -445,23 +462,30 @@ class Watchdog(threading.Thread):
 
     .. py:attribute:: rpc
 
-       The :py:class:`RPC` instance.
+        The :py:class:`RPC` instance.
 
     .. py:attribute:: name
 
-       The thread's name.
+        The thread's name.
 
     .. py:attribute:: interval
 
-       The polling interval of the run loop.
+        The polling interval of the run loop.
 
     .. py:attribute:: daemon
 
-       The thread's daemon flag.
+        The thread's daemon flag.
     """
 
-    def __init__(self, rpc, name="watchdog", interval=0.1, daemon=False, start=True):
-        super(Watchdog, self).__init__()
+    def __init__(
+        self: Watchdog,
+        rpc: RPC,
+        name: str = "watchdog",
+        interval: float = 0.1,
+        daemon: bool = False,
+        start: bool = True,
+    ) -> None:
+        super().__init__()
 
         # store attributes
         self.rpc = rpc
@@ -475,19 +499,19 @@ class Watchdog(threading.Thread):
         if start:
             self.start()
 
-    def start(self):
+    def start(self: Watchdog) -> None:
         """
         Starts with thread's activity.
         """
-        super(Watchdog, self).start()
+        super().start()
 
-    def stop(self):
+    def stop(self: Watchdog) -> None:
         """
         Stops with thread's activity.
         """
         self._stop.set()
 
-    def run(self):
+    def run(self: Watchdog) -> None:
         # reset the stop event
         self._stop.clear()
 
@@ -530,28 +554,27 @@ class Watchdog(threading.Thread):
 
 
 class RPCError(Exception):
-
     """
     Base class for RPC errors.
 
     .. py:attribute:: message
 
-       The message of this error, i.e., ``"<title> (<code>)[, data: <data>]"``.
+        The message of this error, i.e., ``"<title> (<code>)[, data: <data>]"``.
 
     .. py:attribute:: data
 
-       Additional data of this error. Setting the data attribute will also change the message
-       attribute.
+        Additional data of this error. Setting the data attribute will also change the message
+        attribute.
     """
 
-    def __init__(self, data=None):
+    def __init__(self: RPCError, data: str | None = None) -> None:
         # build the error message
-        message = "{} ({})".format(self.title, self.code)
+        message = f"{self.title} ({self.code})"
         if data is not None:
-            message += ", data: {}".format(data)
+            message += f", data: {data}"
         self.message = message
 
-        super(RPCError, self).__init__(message)
+        super().__init__(message)
 
         self.data = data
 
@@ -563,7 +586,7 @@ error_map_distinct = {}
 error_map_range = {}
 
 
-def is_range(code):
+def is_range(code: Any) -> bool:
     return (
         isinstance(code, tuple) and
         len(code) == 2 and
@@ -572,7 +595,7 @@ def is_range(code):
     )
 
 
-def register_error(cls):
+def register_error(cls: type) -> type:
     """
     Decorator that registers a new RPC error derived from :py:class:`RPCError`. The purpose of
     error registration is to have a mapping of error codes/code ranges to error classes for faster
@@ -580,15 +603,15 @@ def register_error(cls):
 
     .. code-block:: python
 
-       @register_error
-       class MyCustomRPCError(RPCError):
-           code = ...
-           title = "My custom error"
+        @register_error
+        class MyCustomRPCError(RPCError):
+            code = ...
+            title = "My custom error"
     """
     # it would be much cleaner to add a meta class to RPCError as a registry for codes
     # but in CPython 2 exceptions aren't types, so simply provide a registry mechanism here
     if not issubclass(cls, RPCError):
-        raise TypeError("'{}' is not a subclass of RPCError".format(cls))
+        raise TypeError(f"'{cls}' is not a subclass of RPCError")
 
     code = cls.code
 
@@ -597,17 +620,17 @@ def register_error(cls):
     elif is_range(code):
         error_map = error_map_range
     else:
-        raise TypeError("invalid RPC error code {}".format(code))
+        raise TypeError(f"invalid RPC error code {code}")
 
     if code in error_map:
-        raise AttributeError("duplicate RPC error code {}".format(code))
+        raise AttributeError(f"duplicate RPC error code {code}")
 
     error_map[code] = cls
 
     return cls
 
 
-def get_error(code):
+def get_error(code: int) -> type | None:
     """
     Returns the RPC error class that was previously registered to *code*. *None* is returned when no
     class could be found.

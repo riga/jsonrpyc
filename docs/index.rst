@@ -1,38 +1,39 @@
-jsonrpyc
-========
+**jsonrpyc**
+============
 
-.. centered:: This page contains only API docs. For more info, visit `jsonrpyc on GitHub <https://github.com/riga/jsonrpyc>`_.
+.. include:: ../README.md
+   :parser: myst_parser.sphinx_
+   :start-after: <!-- marker-before-badges -->
+   :end-before: <!-- marker-after-usage -->
 
-
-.. toctree::
-   :maxdepth: 2
-
+API Docs
+--------
 
 .. automodule:: jsonrpyc
 
 ``RPC``
--------
+^^^^^^^
 
 .. autoclass:: RPC
    :members:
 
 
 ``Spec``
---------
+^^^^^^^^
 
 .. autoclass:: Spec
    :members:
 
 
 ``Watchdog``
-------------
+^^^^^^^^^^^^
 
 .. autoclass:: Watchdog
    :members:
 
 
 ``RPCError``
-------------
+^^^^^^^^^^^^
 
 .. autoexception:: RPCError
    :members:
@@ -43,7 +44,7 @@ jsonrpyc
 
 
 RPC errors
-----------
+^^^^^^^^^^
 
 .. autoexception:: RPCParseError
    :members:
@@ -68,3 +69,12 @@ RPC errors
 .. autoexception:: RPCServerError
    :members:
    :undoc-members:
+
+
+Project Info
+------------
+
+.. include:: ../README.md
+   :parser: myst_parser.sphinx_
+   :start-after: <!-- marker-before-info -->
+   :end-before: <!-- marker-after-body -->
