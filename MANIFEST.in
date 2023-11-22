@@ -1,2 +1,3 @@
-include jsonrpyc.py setup.py requirements.txt README.md LICENSE
+graft jsonrpyc
+include setup.py requirements.txt requirements_dev.txt README.md LICENSE .flake8
 global-exclude *.py[cod] __pycache__

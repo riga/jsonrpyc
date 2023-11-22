@@ -9,61 +9,98 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout 🛎️
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
 
-      - name: Setup python 🐍
-        uses: actions/setup-python@v2
-        with:
-          python-version: 3.8
-
       - name: Install dependencies ☕️
         run: |
-          python -m pip install --upgrade pip
-          pip install flake8
+          python -m pip install -U pip setuptools
+          python -m pip install -r requirements.txt
+          python -m pip install -r requirements_dev.txt
 
       - name: Lint 🔍
-        run: flake8 jsonrpyc.py setup.py tests
+        run: flake8 jsonrpyc tests
 
   pypi:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout 🛎️
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
 
       - name: Setup python 🐍
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
-          python-version: 3.8
+          python-version: 3.9
 
       - name: Install dependencies ☕️
         run: |
-          python -m pip install --upgrade pip
-          pip install twine
+          pip install -U pip setuptools
+          pip install -U twine build
 
       - name: Check bundling 📦
-        run: python setup.py sdist
+        run: python -m build
 
       - name: Check setup 🚦
-        run: twine check "dist/$( python setup.py --fullname ).tar.gz"
+        run: twine check "dist/jsonrpyc-*.tar.gz"
 
   test:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        python: ["2.7", "3.7", "3.8", "3.9"]
-    name: test (python ${{ matrix.python }})
+        python-version:
+          - "3.7"
+          - "3.8"
+          - "3.9"
+          - "3.10"
+          - "3.11"
+          - "3.12"
+    name: test (python ${{ matrix.python-version }})
     steps:
       - name: Checkout 🛎️
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
 
-      - name: Pull docker image 🐳
-        run: docker pull riga/py-base:${{ matrix.python }}
+      - name: Setup Python ${{ matrix.python-version }} 🐍
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies ☕️
+        run: |
+          python -m pip install -U pip setuptools
+          python -m pip install -r requirements.txt
+          python -m pip install -r requirements_dev.txt
 
       - name: Test 🎢
-        run: docker run --rm -t -v $( pwd ):/jsonrpyc -w /jsonrpyc riga/py-base:${{ matrix.python }} python -m unittest tests
+        run: pytest tests
+
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout ⬇️
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: recursive
+
+      - name: Install dependencies ☕️
+        run: |
+          python -m pip install -U pip setuptools
+          python -m pip install -r requirements.txt
+          python -m pip install -r requirements_dev.txt
+
+      - name: Run coverage test 🎢
+        run: pytest --cov=jsonrpyc --cov-report xml:coverage.xml
+
+      - name: Upload report 🔝
+        uses: codecov/codecov-action@v3
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage.xml
+          flags: unittests
+          fail_ci_if_error: false
