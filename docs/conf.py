@@ -42,7 +42,6 @@ extensions = [
     "sphinx.ext.intersphinx",
     "sphinx.ext.viewcode",
     "sphinx.ext.autosectionlabel",
-    "autodocsumm",
     "myst_parser",
     "sphinx_lfs_content",
 ]
