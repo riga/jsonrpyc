@@ -22,8 +22,8 @@
   <a href="https://github.com/riga/jsonrpyc/actions/workflows/lint_and_test.yml">
     <img alt="Build status" src="https://github.com/riga/jsonrpyc/actions/workflows/lint_and_test.yml/badge.svg" />
   </a>
-  <a href="https://github.com/riga/jsonrpycr/blob/master/LICENSE">
-    <img alt="License" src="https://img.shields.io/github/license/riga/jsonrpycr.svg" />
+  <a href="https://github.com/riga/jsonrpyc/blob/master/LICENSE">
+    <img alt="License" src="https://img.shields.io/github/license/riga/jsonrpyc.svg" />
   </a>
 </p>
 
