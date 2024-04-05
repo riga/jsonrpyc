@@ -301,6 +301,8 @@ class RPC(object):
         result is received. In this case, *block* will be the poll interval, emulating synchronuous
         return value behavior. When both *callback* is *None* and *block* is *0* or smaller, the
         request is considered a notification and the remote RPC instance will not send a response.
+
+        If *timeout* is not zero, raise TimeoutError after *timeout* seconds with no response.
         """
         starting_time = time.monotonic()
 
