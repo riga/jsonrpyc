@@ -341,10 +341,11 @@ class RPC(object):
                     if isinstance(result, Exception):
                         raise result
                     return result
-                    if timeout:
-                        elapsed = time.monotonic() - starting_time
-                        if elapsed > timeout:
-                            raise TimeoutError("RPC Request timed out")
+                    
+                if timeout:
+                    elapsed = time.monotonic() - starting_time
+                    if elapsed > timeout:
+                        raise TimeoutError("RPC Request timed out")
 
                 time.sleep(block)
 
