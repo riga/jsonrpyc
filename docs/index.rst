@@ -11,29 +11,17 @@ API Docs
 
 .. automodule:: jsonrpyc
 
-``RPC``
+Classes
 ^^^^^^^
 
 .. autoclass:: RPC
    :members:
 
-
-``Spec``
-^^^^^^^^
-
 .. autoclass:: Spec
    :members:
 
-
-``Watchdog``
-^^^^^^^^^^^^
-
 .. autoclass:: Watchdog
    :members:
-
-
-``RPCError``
-^^^^^^^^^^^^
 
 .. autoexception:: RPCError
    :members:

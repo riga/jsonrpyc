@@ -1,0 +1,5 @@
+sphinx~=6.2.1
+sphinx-book-theme~=1.0.1
+sphinx-autodoc-typehints~=1.22,<1.23
+sphinx-lfs-content~=1.1.7
+myst-parser~=2.0.0

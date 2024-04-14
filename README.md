@@ -12,7 +12,7 @@
   <a href="http://jsonrpyc.readthedocs.io">
     <img alt="Documentation status" src="https://readthedocs.org/projects/jsonrpyc/badge/?version=latest" />
   </a>
-  <img alt="Python version" src="https://img.shields.io/badge/Python-%E2%89%A53.7-blue" />
+  <img alt="Python version" src="https://img.shields.io/badge/Python-%E2%89%A53.8-blue" />
   <a href="https://pypi.python.org/pypi/jsonrpyc">
     <img alt="Package version" src="https://img.shields.io/pypi/v/jsonrpyc.svg?style=flat" />
   </a>
@@ -117,16 +117,26 @@ Install simply via [pip](https://pypi.python.org/pypi/jsonrpyc).
 
 ```bash
 pip install jsonrpyc
+
+# or with optional dev dependencies
+pip install jsonrpyc[dev]
 ```
 
 
 ## Contributing
 
 If you like to contribute to jsonrpyc, I'm happy to receive pull requests.
-Just make sure to add new test cases and run them via:
+Just make sure to add new test cases, run them via
 
 ```bash
 > pytest tests
+```
+
+and check for linting and typing errors with
+
+```bash
+> mypy jsonrpyc
+> flake8 jsonrpyc
 ```
 
 
