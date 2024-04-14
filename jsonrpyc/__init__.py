@@ -294,6 +294,7 @@ class RPC(object):
         kwargs: dict | None = None,
         callback: Callable | None = None,
         block: int = 0,
+        timeout: float = 0,
     ) -> None:
         """
         Performs an actual remote procedure call by writing a request representation (a string) to
@@ -303,7 +304,11 @@ class RPC(object):
         result is received. In this case, *block* will be the poll interval, emulating synchronuous
         return value behavior. When both *callback* is *None* and *block* is *0* or smaller, the
         request is considered a notification and the remote RPC instance will not send a response.
+
+        If *timeout* is not zero, raise TimeoutError after *timeout* seconds with no response.
         """
+        starting_time = time.monotonic()
+
         # default kwargs
         if kwargs is None:
             kwargs = {}
@@ -339,6 +344,12 @@ class RPC(object):
                     if isinstance(result, Exception):
                         raise result
                     return result
+                    
+                if timeout:
+                    elapsed = time.monotonic() - starting_time
+                    if elapsed > timeout:
+                        raise TimeoutError("RPC Request timed out")
+
                 time.sleep(block)
 
     def _handle(self: RPC, line: str) -> None:
