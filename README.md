@@ -12,7 +12,7 @@
   <a href="http://jsonrpyc.readthedocs.io">
     <img alt="Documentation status" src="https://readthedocs.org/projects/jsonrpyc/badge/?version=latest" />
   </a>
-  <img alt="Python version" src="https://img.shields.io/badge/Python-%E2%89%A53.7-blue" />
+  <img alt="Python version" src="https://img.shields.io/badge/Python-%E2%89%A53.8-blue" />
   <a href="https://pypi.python.org/pypi/jsonrpyc">
     <img alt="Package version" src="https://img.shields.io/pypi/v/jsonrpyc.svg?style=flat" />
   </a>
