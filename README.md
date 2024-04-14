@@ -117,16 +117,26 @@ Install simply via [pip](https://pypi.python.org/pypi/jsonrpyc).
 
 ```bash
 pip install jsonrpyc
+
+# or with optional dev dependencies
+pip install jsonrpyc[dev]
 ```
 
 
 ## Contributing
 
 If you like to contribute to jsonrpyc, I'm happy to receive pull requests.
-Just make sure to add new test cases and run them via:
+Just make sure to add new test cases, run them via
 
 ```bash
 > pytest tests
+```
+
+and check for linting and typing errors with
+
+```bash
+> mypy jsonrpyc
+> flake8 jsonrpyc
 ```
 
 

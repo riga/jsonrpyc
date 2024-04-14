@@ -29,7 +29,7 @@ html_logo = "../assets/logo.png"
 html_favicon = "../assets/favicon.ico"
 html_theme = "sphinx_book_theme"
 html_theme_options = {
-    "show_navbar_depth": 2,
+    "show_toc_level": 4,
     "repository_url": "https://github.com/riga/jsonrpyc",
     "use_repository_button": True,
     "use_issues_button": True,
