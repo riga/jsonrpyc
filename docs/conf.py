@@ -21,7 +21,6 @@ language = "en"
 html_static_path = ["_static"]
 master_doc = "index"
 source_suffix = ".rst"
-exclude_patterns = []
 pygments_style = "sphinx"
 add_module_names = False
 
