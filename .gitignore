@@ -7,3 +7,4 @@ dist
 MANIFEST
 docs/_build
 *.egg-info
+.python-version
