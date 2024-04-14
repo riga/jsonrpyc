@@ -260,8 +260,11 @@ class RPC(object):
         # open streams
         stdin = sys.stdin if stdin is None else stdin
         stdout = sys.stdout if stdout is None else stdout
+        
+        self.original_stdin = stdin
         self.stdin = io.open(stdin.fileno(), "rb")
         self.stdout = io.open(stdout.fileno(), "wb")
+        
 
         # other attributes
         self._i = -1
@@ -527,7 +530,11 @@ class Watchdog(threading.Thread):
             # stop when stdin is closed
             if self.rpc.stdin.closed:
                 break
-
+                
+            # Keep linter happy
+            if self.rpc.original_stdin and self.rpc.original_stdin.closed:
+                break
+                
             # read from stdin depending on whether it is a tty or not
             if self.rpc.stdin.isatty():
                 cur_pos = self.rpc.stdin.tell()
