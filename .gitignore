@@ -3,7 +3,13 @@
 *.pyc
 *.log
 *.DS_Store
+*.egg-info
+__pycache__
+.vscode
+.python-version
+.dmypy.json
+.coverage
+coverage*.xml
 dist
 MANIFEST
 docs/_build
-*.egg-info
