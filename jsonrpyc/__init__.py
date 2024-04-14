@@ -260,8 +260,11 @@ class RPC(object):
         # open streams
         stdin = sys.stdin if stdin is None else stdin
         stdout = sys.stdout if stdout is None else stdout
+        
+        self.original_stdin = stdin
         self.stdin = io.open(stdin.fileno(), "rb")
         self.stdout = io.open(stdout.fileno(), "wb")
+        
 
         # other attributes
         self._i = -1
@@ -291,6 +294,7 @@ class RPC(object):
         kwargs: dict | None = None,
         callback: Callable | None = None,
         block: int = 0,
+        timeout: float = 0,
     ) -> None:
         """
         Performs an actual remote procedure call by writing a request representation (a string) to
@@ -300,7 +304,11 @@ class RPC(object):
         result is received. In this case, *block* will be the poll interval, emulating synchronuous
         return value behavior. When both *callback* is *None* and *block* is *0* or smaller, the
         request is considered a notification and the remote RPC instance will not send a response.
+
+        If *timeout* is not zero, raise TimeoutError after *timeout* seconds with no response.
         """
+        starting_time = time.monotonic()
+
         # default kwargs
         if kwargs is None:
             kwargs = {}
@@ -336,6 +344,12 @@ class RPC(object):
                     if isinstance(result, Exception):
                         raise result
                     return result
+                    
+                if timeout:
+                    elapsed = time.monotonic() - starting_time
+                    if elapsed > timeout:
+                        raise TimeoutError("RPC Request timed out")
+
                 time.sleep(block)
 
     def _handle(self: RPC, line: str) -> None:
@@ -527,7 +541,11 @@ class Watchdog(threading.Thread):
             # stop when stdin is closed
             if self.rpc.stdin.closed:
                 break
-
+                
+            # Keep linter happy
+            if self.rpc.original_stdin and self.rpc.original_stdin.closed:
+                break
+                
             # read from stdin depending on whether it is a tty or not
             if self.rpc.stdin.isatty():
                 cur_pos = self.rpc.stdin.tell()
