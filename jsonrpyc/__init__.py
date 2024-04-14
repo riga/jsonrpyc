@@ -7,7 +7,7 @@ import json
 import io
 import time
 import threading
-from typing import Any, Callable
+from typing import Any, Callable, Type
 
 # package infos
 from jsonrpyc.__meta__ import (  # noqa
@@ -64,11 +64,10 @@ class Spec(object):
         Value check for *code* entries. Raises a *TypeError* when *code* is not an integer, or a
         *KeyError* when there is no :py:class:`RPCError` subclass registered for that *code*.
         """
-        if not isinstance(code, int):
-            raise TypeError(f"code must be an integer, got {code} ({type(code)})")
-
-        if not get_error(code):
-            raise ValueError(f"unknown code, got {code} ({type(code)})")
+        try:
+            get_error(code)
+        except:
+            raise TypeError(f"invalid error code, got {code} ({type(code)})")
 
     @classmethod
     def request(
@@ -134,7 +133,12 @@ class Spec(object):
         return res
 
     @classmethod
-    def error(cls, id: str | int | None, code: int, data: dict | None = None) -> str:
+    def error(
+        cls,
+        id: str | int | None,
+        code: int,
+        data: Any | None = None,
+    ) -> str:
         """
         Creates the string representation of an error that occured while processing a request with
         *id*. *code* must lead to a registered :py:class:`RPCError`. *data* might contain
@@ -147,7 +151,7 @@ class Spec(object):
             raise RPCInvalidRequest(str(e))
 
         # build the inner error data
-        message = get_error(code).title
+        message = get_error(code).title  # type: ignore[union-attr]
         err_data = f"{{\"code\":{code},\"message\":\"{message}\""
 
         # insert data when given
@@ -244,8 +248,9 @@ class RPC(object):
 
     EMPTY_RESULT = object()
 
+    # TODO: use protocol instead of discouraged hints
     def __init__(
-        self: RPC,
+        self,
         target: Any | None = None,
         stdin: io.TextIOBase | None = None,
         stdout: io.TextIOBase | None = None,
@@ -258,52 +263,53 @@ class RPC(object):
         self.target = target
 
         # open streams
-        stdin = sys.stdin if stdin is None else stdin
-        stdout = sys.stdout if stdout is None else stdout
-        
-        self.original_stdin = stdin
-        self.stdin = io.open(stdin.fileno(), "rb")
-        self.stdout = io.open(stdout.fileno(), "wb")
-        
+        _stdin = sys.stdin if stdin is None else stdin  # type: ignore[assignment]
+        _stdout = sys.stdout if stdout is None else stdout  # type: ignore[assignment]
+        self.stdin = io.open(_stdin.fileno(), "rb")  # type: ignore[attr-defined]
+        self.stdout = io.open(_stdout.fileno(), "wb")  # type: ignore[attr-defined]
+        self.original_stdin = _stdin
+        self.original_stdout = _stdout
 
         # other attributes
         self._i = -1
-        self._callbacks = {}
-        self._results = {}
+        self._callbacks: dict[int, Callable] = {}
+        self._results: dict[int, Any] = {}
 
         # create and optionall start the watchdog
         kwargs["start"] = watch
         kwargs.setdefault("daemon", target is None)
         self.watchdog = Watchdog(self, **kwargs)
 
-    def __del__(self: RPC) -> None:
+    def __del__(self) -> None:
         watchdog = getattr(self, "watchdog", None)
         if watchdog:
             watchdog.stop()
 
-    def __call__(self: RPC, *args, **kwargs) -> None:
+    def __call__(self, *args, **kwargs) -> None:
         """
         Shorthand for :py:meth:`call`.
         """
         return self.call(*args, **kwargs)
 
     def call(
-        self: RPC,
+        self,
         method: str,
-        args: tuple[Any] = (),
+        args: tuple[Any, ...] = (),
         kwargs: dict | None = None,
         callback: Callable | None = None,
         block: int = 0,
-        timeout: float = 0,
+        timeout: float | int = 0,
     ) -> None:
         """
         Performs an actual remote procedure call by writing a request representation (a string) to
         the output stream. The remote RPC instance uses *method* to route to the actual method to
-        call with *args* and *kwargs*. When *callback* is set, it will be called with the result of
-        the remote call. When *block* is larger than *0*, the calling thread is blocked until the
-        result is received. In this case, *block* will be the poll interval, emulating synchronuous
-        return value behavior. When both *callback* is *None* and *block* is *0* or smaller, the
-        request is considered a notification and the remote RPC instance will not send a response.
+        call with *args* and *kwargs*.
+
+        When *callback* is set, it will be called with the result of the remote call. When *block*
+        is larger than *0*, the calling thread is blocked until the result is received. In this
+        case, *block* will be the poll interval, emulating synchronuous return value behavior.
+        When both *callback* is *None* and *block* is *0* or smaller, the request is considered a
+        notification and the remote RPC instance will not send a response.
 
         If *timeout* is not zero, raise TimeoutError after *timeout* seconds with no response.
         """
@@ -317,7 +323,8 @@ class RPC(object):
         is_notification = callback is None and block <= 0
 
         # create a new id for requests expecting a response
-        id = None
+        # TODO: simplify case when id is (not) needed
+        id = -1
         if not is_notification:
             self._i += 1
             id = self._i
@@ -344,7 +351,7 @@ class RPC(object):
                     if isinstance(result, Exception):
                         raise result
                     return result
-                    
+
                 if timeout:
                     elapsed = time.monotonic() - starting_time
                     if elapsed > timeout:
@@ -352,7 +359,7 @@ class RPC(object):
 
                 time.sleep(block)
 
-    def _handle(self: RPC, line: str) -> None:
+    def _handle(self, line: str) -> None:
         """
         Handles an incoming *line* and dispatches the parsed object to the request, response, or
         error handlers.
@@ -370,7 +377,7 @@ class RPC(object):
             # error
             self._handle_error(obj)
 
-    def _handle_request(self: RPC, req: dict[str, Any]) -> None:
+    def _handle_request(self, req: dict[str, Any]) -> None:
         """
         Handles an incoming request *req*. When it containes an id, a response or error is sent
         back.
@@ -389,7 +396,7 @@ class RPC(object):
                     err = Spec.error(req["id"], -32603, str(e))
                 self._write(err)
 
-    def _handle_response(self: RPC, res: dict[str, Any]) -> None:
+    def _handle_response(self, res: dict[str, Any]) -> None:
         """
         Handles an incoming successful response *res*. Blocking calls are resolved and registered
         callbacks are invoked with the first error argument being set to *None*.
@@ -404,7 +411,7 @@ class RPC(object):
             del self._callbacks[res["id"]]
             callback(None, res["result"])
 
-    def _handle_error(self: RPC, res: dict[str, Any]) -> None:
+    def _handle_error(self, res: dict[str, Any]) -> None:
         """
         Handles an incoming failed response *res*. Blocking calls throw an exception and
         registered callbacks are invoked with an exception and the second result argument set to
@@ -424,7 +431,7 @@ class RPC(object):
             del self._callbacks[res["id"]]
             callback(error, None)
 
-    def _route(self: RPC, method: str) -> Any:
+    def _route(self, method: str) -> Any:
         """
         Returnes the method of the wrapped target object to be called when *method* is requested.
         Example:
@@ -461,11 +468,11 @@ class RPC(object):
 
         raise RPCMethodNotFound(data=method)
 
-    def _write(self: RPC, s: str) -> None:
+    def _write(self, s: str) -> None:
         """
         Writes a string *s* to the output stream.
         """
-        self.stdout.write(bytearray(s + "\n", "utf-8"))
+        self.stdout.write(bytearray(f"{s}\n", "utf-8"))
         self.stdout.flush()
 
 
@@ -492,10 +499,10 @@ class Watchdog(threading.Thread):
     """
 
     def __init__(
-        self: Watchdog,
+        self,
         rpc: RPC,
         name: str = "watchdog",
-        interval: float = 0.1,
+        interval: float | int = 0.1,
         daemon: bool = False,
         start: bool = True,
     ) -> None:
@@ -513,19 +520,19 @@ class Watchdog(threading.Thread):
         if start:
             self.start()
 
-    def start(self: Watchdog) -> None:
+    def start(self) -> None:
         """
-        Starts with thread's activity.
+        Starts the thread's activity.
         """
         super().start()
 
-    def stop(self: Watchdog) -> None:
+    def stop(self) -> None:
         """
-        Stops with thread's activity.
+        Stops the thread's activity.
         """
         self._stop.set()
 
-    def run(self: Watchdog) -> None:
+    def run(self) -> None:
         # reset the stop event
         self._stop.clear()
 
@@ -541,11 +548,11 @@ class Watchdog(threading.Thread):
             # stop when stdin is closed
             if self.rpc.stdin.closed:
                 break
-                
+
             # Keep linter happy
-            if self.rpc.original_stdin and self.rpc.original_stdin.closed:
+            if self.rpc.original_stdin and self.rpc.original_stdin.closed:  # type: ignore[attr-defined] # noqa
                 break
-                
+
             # read from stdin depending on whether it is a tty or not
             if self.rpc.stdin.isatty():
                 cur_pos = self.rpc.stdin.tell()
@@ -563,8 +570,8 @@ class Watchdog(threading.Thread):
 
             # handle new lines if any
             if lines:
-                for line in lines:
-                    line = line.decode("utf-8").strip()
+                for b_line in lines:
+                    line = b_line.decode("utf-8").strip()
                     if line:
                         self.rpc._handle(line)
             else:
@@ -585,7 +592,20 @@ class RPCError(Exception):
         attribute.
     """
 
-    def __init__(self: RPCError, data: str | None = None) -> None:
+    code_range: tuple[int, int]
+    code: int
+    title: str
+
+    @classmethod
+    def is_code_range(cls, code: Any) -> bool:
+        return (
+            isinstance(code, tuple) and
+            len(code) == 2 and
+            all(isinstance(i, int) for i in code) and
+            code[0] <= code[1]
+        )
+
+    def __init__(self, data: str | None = None) -> None:
         # build the error message
         message = f"{self.title} ({self.code})"
         if data is not None:
@@ -600,20 +620,11 @@ class RPCError(Exception):
         return self.message
 
 
-error_map_distinct = {}
-error_map_range = {}
+error_map_code: dict[int, Type[RPCError]] = {}
+error_map_code_range: dict[tuple[int, int], Type[RPCError]] = {}
 
 
-def is_range(code: Any) -> bool:
-    return (
-        isinstance(code, tuple) and
-        len(code) == 2 and
-        all(isinstance(i, int) for i in code) and
-        code[0] < code[1]
-    )
-
-
-def register_error(cls: type) -> type:
+def register_error(cls: Type[RPCError]) -> Type[RPCError]:
     """
     Decorator that registers a new RPC error derived from :py:class:`RPCError`. The purpose of
     error registration is to have a mapping of error codes/code ranges to error classes for faster
@@ -623,83 +634,84 @@ def register_error(cls: type) -> type:
 
         @register_error
         class MyCustomRPCError(RPCError):
-            code = ...
+            code_range = (lower_bound, upper_bound)  # both inclusive
+            code = code_range[0]  # default code when used as is
             title = "My custom error"
     """
-    # it would be much cleaner to add a meta class to RPCError as a registry for codes
-    # but in CPython 2 exceptions aren't types, so simply provide a registry mechanism here
     if not issubclass(cls, RPCError):
         raise TypeError(f"'{cls}' is not a subclass of RPCError")
 
-    code = cls.code
+    # check duplicates
+    if cls.code in error_map_code:
+        raise AttributeError(f"duplicate RPC error code {cls.code}")
+    if cls.code_range in error_map_code_range:
+        raise AttributeError(f"duplicate RPC error code range {cls.code_range}")
 
-    if isinstance(code, int):
-        error_map = error_map_distinct
-    elif is_range(code):
-        error_map = error_map_range
-    else:
-        raise TypeError(f"invalid RPC error code {code}")
-
-    if code in error_map:
-        raise AttributeError(f"duplicate RPC error code {code}")
-
-    error_map[code] = cls
+    # register
+    error_map_code[cls.code] = cls
+    error_map_code_range[cls.code_range] = cls
 
     return cls
 
 
-def get_error(code: int) -> type | None:
+def get_error(code: int) -> Type[RPCError]:
     """
-    Returns the RPC error class that was previously registered to *code*. *None* is returned when no
-    class could be found.
+    Returns the RPC error class that was previously registered to *code*. A ``ValueError`` is raised
+    if no error class was found for *code*.
     """
-    if code in error_map_distinct:
-        return error_map_distinct[code]
+    if code in error_map_code:
+        return error_map_code[code]
 
-    for (lower, upper), cls in error_map_range.items():
+    for (lower, upper), cls in error_map_code_range.items():
         if lower <= code <= upper:
             return cls
 
-    return None
+    raise ValueError(f"unknown error code '{code}' ({type(code)})")
 
 
 @register_error
 class RPCParseError(RPCError):
 
-    code = -32700
+    code_range = (-32700, -32700)
+    code = code_range[0]
     title = "Parse error"
 
 
 @register_error
 class RPCInvalidRequest(RPCError):
 
-    code = -32600
+    code_range = (-32600, -32600)
+    code = code_range[0]
     title = "Invalid Request"
 
 
 @register_error
 class RPCMethodNotFound(RPCError):
 
-    code = -32601
+    code_range = (-32601, -32601)
+    code = code_range[0]
     title = "Method not found"
 
 
 @register_error
 class RPCInvalidParams(RPCError):
 
-    code = -32602
+    code_range = (-32602, -32602)
+    code = code_range[0]
     title = "Invalid params"
 
 
 @register_error
 class RPCInternalError(RPCError):
 
-    code = -32603
+    code_range = (-32603, -32603)
+    code = code_range[0]
     title = "Internal error"
 
 
 @register_error
 class RPCServerError(RPCError):
 
-    code = (-32099, -32000)
+    code_range = (-32099, -32000)
+    code = code_range[0]  # default code when used as is
     title = "Server error"
