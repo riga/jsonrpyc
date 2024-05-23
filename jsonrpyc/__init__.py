@@ -713,9 +713,12 @@ class Watchdog(threading.Thread):
             # handle new lines if any
             if lines:
                 for b_line in lines:
-                    line = b_line.decode("utf-8").strip()
-                    if line:
-                        self.rpc._handle(line)
+                    if not b_line:
+                        self.stop()
+                    else:
+                        line = b_line.decode("utf-8").strip()
+                        if line:
+                            self.rpc._handle(line)
             else:
                 self._stop.wait(self.interval)
 
