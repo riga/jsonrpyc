@@ -7,7 +7,7 @@ http://www.jsonrpc.org/specification.
 
 __author__ = "Marcel Rieger"
 __email__ = "github.riga@icloud.com"
-__copyright__ = "Copyright 2016-2024, Marcel Rieger"
+__copyright__ = "Copyright 2016-2025, Marcel Rieger"
 __credits__ = ["Marcel Rieger"]
 __contact__ = "https://github.com/riga/jsonrpyc"
 __license__ = "BSD-3-Clause"

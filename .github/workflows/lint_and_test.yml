@@ -82,6 +82,7 @@ jobs:
           - "3.10"
           - "3.11"
           - "3.12"
+          - "3.13"
     name: test (python ${{ matrix.python-version }})
     steps:
       - name: Checkout 🛎️
@@ -125,7 +126,7 @@ jobs:
         run: pytest --cov=jsonrpyc --cov-report xml:coverage.xml
 
       - name: Upload report 🔝
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage.xml
