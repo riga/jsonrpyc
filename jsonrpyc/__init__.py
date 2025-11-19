@@ -647,7 +647,7 @@ class Watchdog(threading.Thread):
         self.daemon = daemon
 
         # register a stop event
-        self._stop = threading.Event()
+        self._stop_event = threading.Event()
 
         if start:
             self.start()
@@ -666,7 +666,7 @@ class Watchdog(threading.Thread):
 
         :return: None.
         """
-        self._stop.set()
+        self._stop_event.set()
 
     def run(self) -> None:
         """
@@ -676,7 +676,7 @@ class Watchdog(threading.Thread):
         :return: None.
         """
         # reset the stop event
-        self._stop.clear()
+        self._stop_event.clear()
 
         # stop here when stdin is not set or closed
         if self.rpc.stdin is None or self.rpc.stdin.closed:
@@ -684,7 +684,7 @@ class Watchdog(threading.Thread):
 
         # read new incoming lines
         last_pos = 0
-        while not self._stop.is_set():
+        while not self._stop_event.is_set():
             lines = None
 
             # stop when stdin is closed
@@ -717,7 +717,7 @@ class Watchdog(threading.Thread):
                     if line:
                         self.rpc._handle(line)
             else:
-                self._stop.wait(self.interval)
+                self._stop_event.wait(self.interval)
 
 
 class RPCError(Exception):
