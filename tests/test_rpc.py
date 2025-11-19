@@ -8,6 +8,7 @@ Tests of the RPC functionality.
 import os
 import unittest
 from subprocess import Popen, PIPE
+from time import sleep
 
 import jsonrpyc
 
@@ -26,10 +27,25 @@ class RPCTestCase(unittest.TestCase):
         self.rpc = jsonrpyc.RPC(stdout=self.p.stdin, stdin=self.p.stdout)
 
     def __del__(self):
-        self.p.stdin.close()
-        self.p.stdout.close()
+        try:
+            self.p.stdin.close()
+        except OSError:
+            pass
+        try:
+            self.p.stdout.close()
+        except OSError:
+            pass
         self.p.terminate()
         self.p.wait()
+
+    def test_orphan_exits(self):
+        self.p.terminate()
+        self.p.wait(timeout=1)
+        for _ in range(5):
+            if self.rpc.watchdog._stop.is_set():
+                break
+            sleep(0.05)
+        self.assertTrue(self.rpc.watchdog._stop.is_set())
 
     def test_request_wo_args(self):
         def cb(err, one):
