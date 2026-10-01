@@ -1,7 +1,9 @@
 <!-- marker-before-logo -->
 
 <p align="center">
-  <img src="https://media.githubusercontent.com/media/riga/jsonrpyc/master/assets/logo.png" width="400" />
+  <a href="https://github.com/riga/jsonrpyc">
+    <img alt="jsonrpyc logo" src="https://media.githubusercontent.com/media/riga/jsonrpyc/master/assets/logo.png" width="400" />
+  </a>
 </p>
 
 <!-- marker-after-logo -->
@@ -9,18 +11,15 @@
 <!-- marker-before-badges -->
 
 <p align="center">
-  <a href="http://jsonrpyc.readthedocs.io">
+  <a href="http://jsonrpyc.readthedocs.io/en/latest">
     <img alt="Documentation status" src="https://readthedocs.org/projects/jsonrpyc/badge/?version=latest" />
   </a>
-  <img alt="Python version" src="https://img.shields.io/badge/Python-%E2%89%A53.8-blue" />
+  <a href="https://github.com/riga/jsonrpyc/actions/workflows/ci.yml">
+    <img alt="CI" src="https://github.com/riga/jsonrpyc/actions/workflows/ci.yml/badge.svg" />
+  </a>
+  <img alt="Python version" src="https://img.shields.io/badge/Python-%E2%89%A53.9-blue" />
   <a href="https://pypi.python.org/pypi/jsonrpyc">
     <img alt="Package version" src="https://img.shields.io/pypi/v/jsonrpyc.svg?style=flat" />
-  </a>
-  <a href="https://codecov.io/gh/riga/jsonrpyc">
-    <img alt="Code coverge" src="https://codecov.io/gh/riga/jsonrpyc/branch/master/graph/badge.svg?token=R8SY3O6KB9" />
-  </a>
-  <a href="https://github.com/riga/jsonrpyc/actions/workflows/lint_and_test.yml">
-    <img alt="Build status" src="https://github.com/riga/jsonrpyc/actions/workflows/lint_and_test.yml/badge.svg" />
   </a>
   <a href="https://github.com/riga/jsonrpyc/blob/master/LICENSE">
     <img alt="License" src="https://img.shields.io/github/license/riga/jsonrpyc.svg" />
@@ -49,20 +48,18 @@ A suitable implementation for NodeJs is [node-json-rpc](https://github.com/riga/
 A ``jsonrpyc.RPC`` instance may wrap a *target* object.
 Incomming requests will be routed to methods of this object whose result might be sent back as a response. Example implementation:
 
-
 ### ``server.py``
 
 ```python
 import jsonrpyc
 
-class MyTarget(object):
+class MyTarget:
 
-    def greet(self: MyTarget, name: str) -> str:
+    def greet(self, name: str) -> str:
         return f"Hi, {name}!"
 
 jsonrpyc.RPC(MyTarget())
 ```
-
 
 ### ``client.py``
 
@@ -81,7 +78,6 @@ rpc = jsonrpyc.RPC(stdout=p.stdin, stdin=p.stdout)
 print(rpc("greet", args=("John",), block=0.1))
 # => "Hi, John!"
 
-
 #
 # async usage
 #
@@ -95,7 +91,6 @@ rpc("greet", args=("John",), callback=cb)
 
 # cb is called asynchronously which prints
 # => "callback got: Hi, John!"
-
 
 #
 # shutdown
@@ -122,23 +117,33 @@ pip install jsonrpyc
 pip install jsonrpyc[dev]
 ```
 
-
 ## Contributing
 
 If you like to contribute to jsonrpyc, I'm happy to receive pull requests.
-Just make sure to add new test cases, run them via
 
-```bash
-> pytest tests
+The full testing pipeline is based on [pre-commit](https://pre-commit.com).
+Run the following to install development dependencies and set it up:
+
+```shell
+# inside the cloned repository
+git lfs install
+pip install -e .[dev]
+pre-commit install
 ```
 
-and check for linting and typing errors with
+Now, every time you make a commit, the pre-commit and pre-push hooks will automatically run linting, type checking and unit tests.
+To run them manually, use
 
-```bash
-> mypy jsonrpyc
-> flake8 jsonrpyc
+```shell
+# for linting, type checking and additional checks on all files
+pre-commit run --all-files
+
+# only for staged files
+pre-commit run --all-files
+
+# for unit tests
+pytest
 ```
-
 
 ## Development
 
