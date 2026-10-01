@@ -29,14 +29,14 @@ html_title = f"{project} v{version}"
 html_logo = "../assets/logo.png"
 html_favicon = "../assets/favicon.ico"
 html_theme = "sphinx_book_theme"
-html_theme_options.update({
+html_theme_options ={
     "home_page_in_toc": True,
     "show_navbar_depth": 2,
     "repository_url": "https://github.com/riga/jsonrpyc",
     "use_repository_button": True,
     "use_issues_button": True,
     "use_edit_page_button": True,
-})
+}
 
 extensions = [
     "sphinx.ext.autodoc",
