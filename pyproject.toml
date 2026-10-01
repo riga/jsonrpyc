@@ -1,59 +1,193 @@
 [build-system]
-
-requires = ["setuptools"]
-build-backend = "setuptools.build_meta"
-
+requires = ["hatchling~=1.27.0"]
+build-backend = "hatchling.build"
 
 [project]
-
 name = "jsonrpyc"
-description = "Minimal python RPC implementation in a single file based on the JSON-RPC 2.0 specs from http://www.jsonrpc.org/specification."
+description = "Minimal python RPC based on the JSON-RPC 2.0 specs from http://www.jsonrpc.org/specification."
+readme = "README.md"
+requires-python = ">=3.9"
+license = "BSD-3-Clause"
+license-files = ["LICENSE"]
 authors = [
-    {name = "Marcel Rieger", email = "github.riga@icloud.com"},
+  {name = "Marcel Rieger", email = "github.riga@icloud.com"},
 ]
 keywords = [
-    "rpc",
-    "json",
-    "json-rpc",
-    "jsonrpc",
-    "2.0",
+  "rpc",
+  "json",
+  "json-rpc",
+  "jsonrpc"
 ]
 classifiers = [
-    "Programming Language :: Python",
+  "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Operating System :: OS Independent",
     "License :: OSI Approved :: BSD License",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
     "Intended Audience :: Information Technology",
 ]
-license = {file = "LICENSE"}
-requires-python = ">=3.8"
-dynamic = ["version", "readme", "dependencies", "optional-dependencies"]
+dynamic = ["version"]
+# pinned to 3.9
+dependencies = [
+  "typing_extensions~=4.8",
+]
 
+[project.optional-dependencies]
+# pinned to 3.9
+dev = [
+  "build~=1.4;python_version < '3.10'",
+  "build~=1.5;python_version >= '3.10'",
+  "twine~=6.2",
+  "mypy~=1.19;python_version < '3.10'",
+  "mypy~=2.1;python_version >= '3.10'",
+  "pytest~=8.4;python_version < '3.10'",
+  "pytest~=9.1;python_version >= '3.10'",
+  "pytest-cov~=7.1",
+  "types-docutils~=0.22",
+  "pre-commit~=4.3;python_version < '3.10'",
+  "pre-commit~=4.6;python_version >= '3.10'"
+]
+# pinned to 3.13, see .readthedocs.yaml
+docs = [
+  "sphinx~=9.1",
+  "sphinx-autodoc-typehints~=3.11",
+  "sphinx-book-theme~=1.2",
+  "sphinx-lfs-content~=1.1",
+  "autodocsumm~=0.2",
+  "myst-parser~=5.1",
+]
 
 [project.urls]
-
 Homepage = "https://github.com/riga/jsonrpyc"
 Documentation = "https://jsonrpyc.readthedocs.io"
 Repository = "https://github.com/riga/jsonrpyc.git"
+Issues = "https://github.com/riga/jsonrpyc/issues"
 
+[tool.hatch]
+version.path = "src/jsonrpyc/__meta__.py"
+metadata.allow-direct-references = true
 
-[tool.setuptools.dynamic]
+[tool.hatch.build]
+exclude = [
+  "/.github",
+  "/docs",
+  "/tests",
+  "/tmp",
+  "/dist",
+  "/build",
+  "/.venv",
+  "*.py[cod]",
+  "__pycache__",
+  ".git*",
+  ".readthedocs.yaml",
+  "codecov.yml",
+  ".pre-commit-config.yaml",
+]
 
-version = {attr = "jsonrpyc.__meta__.__version__"}
-readme = {file = ["README.md"], content-type = "text/markdown"}
-dependencies = {file = ["requirements.txt"]}
-optional-dependencies = {dev = {file = ["requirements_dev.txt"]}, docs = {file = ["requirements_docs.txt"]}}
+[tool.hatch.build.targets.wheel]
+packages = ["src/jsonrpyc"]
 
+[tool.ruff]
+line-length = 120
+target-version = "py313"
+src = ["src", "tests"]
+exclude = ["docs", "build"]
 
-[tool.setuptools.packages.find]
+[tool.ruff.lint]
+preview = true
+ignore = [
+  "PLR",  # design related pylint codes
+  "B901",  # return in generator
+  "B905",  # use of zip() without strict parameter
+  "E402",  # imports at the top of the file
+  "G004",  # logging statement uses f-string
+  "I002",  # isort: "from __future__ import annotations"
+  "ISC001",  # flake8-implicit-str-concat: Implicit string concatenation"
+  "PLW2901",  # ignore reassingment of loop variable
+  "E731",  # do not assign a lambda expression, use a def
+  "EM101",  # do not use literal strings in exception messages
+  "EM102",  # do not use f-string in exception messages
+  "SIM103",  # return needless bool
+  "RUF100",  # unused "noqa" directive
+  "RUF105",  # any "noqa" comment
+  "PLC0415",  # `import` should be at the top-level of a file
+  "PLW0603",  # discouraged use of global statement
+  "PLW3201",  # dunder method `...` has no special meaning in Python 3
+  "PLW0717",  # too many lines in try block
+  "RUF012",  # mutable class default
+  "RUF017",  # avoid nested comprehensions
+  "RUF052",  # local dummy variable `...` is accessed
+  "RUF067",  # __init__ should only contain imports
+  "RET504",  # unnecessary assignment before return
+  "UP040",  # type alias
+]
+select = [
+  "E",
+  "F",
+  "W",  # flake8
+  "B",  # flake8-bugbear
+  "I",  # isort
+  "C4",  # flake8-comprehensions
+  "EM",  # flake8-errmsg
+  "ICN",  # flake8-import-conventions
+  "ISC",  # flake8-implicit-str-concat
+  "G",  # flake8-logging-format
+  "PGH",  # pygrep-hooks
+  "PIE",  # flake8-pie
+  "PL",  # pylint
+  "PT",  # flake8-pytest-style
+  "RET",  # flake8-return
+  "RUF",  # ruff-specific
+  "SIM",  # flake8-simplify
+  "UP",  # pyupgrade
+  "YTT",  # flake8-2020
+  "EXE",  # flake8-executable
+  "COM812",  # trailing commas
+  "E303",  # too many blank lines
+]
+unfixable = [
+  "F841",  # would remove unused variables
+]
+flake8-unused-arguments.ignore-variadic-names = true
+isort.required-imports = ["from __future__ import annotations"]
 
-include = ["jsonrpyc"]
-exclude = ["tests/*"]
+[tool.mypy]
+python_version = "3.13"
+strict = false
+files = ["src/jsonrpyc", "tests"]
+exclude = ["docs", "build"]
+disable_error_code = ["no-redef", "no-untyped-def", "valid-type", "method-assign"]
+warn_unreachable = true
+warn_redundant_casts = true
+warn_unused_ignores = false
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+ignore_missing_imports = true
+check_untyped_defs = true
+show_error_codes = true
+pretty = true
+
+[[tool.mypy.overrides]]
+module = ["tests.*"]
+disallow_untyped_defs = false
+
+[tool.pytest.ini_options]
+minversion = "8.4"
+addopts = "--cov=jsonrpyc --cov-report xml:coverage.xml"
+testpaths = ["tests"]
+
+[tool.coverage.run]
+source = ["src/jsonrpyc"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+fail_under = 5
