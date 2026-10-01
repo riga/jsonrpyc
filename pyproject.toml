@@ -59,7 +59,9 @@ docs = [
   "sphinx~=9.1",
   "sphinx-autodoc-typehints~=3.11",
   "sphinx-book-theme~=1.2",
-  "sphinx-lfs-content~=1.1",
+  # "sphinx-lfs-content~=1.1",
+  # use github project from https://github.com/riga/sphinx_lfs_content/tree/fix/stale_37_path
+  "git+https://github.com/riga/sphinx_lfs_content.git@fix/stale_37_path#egg=sphinx-lfs-content",
   "autodocsumm~=0.2",
   "myst-parser~=5.1",
 ]
