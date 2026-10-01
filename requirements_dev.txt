@@ -1,7 +1,0 @@
-mypy~=1.9.0
-flake8~=7.0.0
-flake8-commas~=2.1.0
-flake8-quotes~=3.3.2
-pytest~=7.4.4
-pytest-cov~=4.1.0
-types-docutils~=0.20.0

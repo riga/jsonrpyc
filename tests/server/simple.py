@@ -1,5 +1,3 @@
-# coding: utf-8
-
 """
 Simple script starting an RPC server and wraps a custom class.
 """
@@ -7,11 +5,10 @@ Simple script starting an RPC server and wraps a custom class.
 import os
 import sys
 
-
 sys.path.append(os.path.dirname(os.getcwd()))
 
 
-class MyClass(object):
+class MyClass:
 
     def one(self):
         return 1

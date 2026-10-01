@@ -1,28 +1,27 @@
-# coding: utf-8
-
 """
 Tests of the RPC functionality.
 """
 
-
-import os
-import unittest
-from subprocess import Popen, PIPE
-from time import sleep
-
-import jsonrpyc
-
+from __future__ import annotations
 
 __all__ = ["RPCTestCase"]
 
+import os
+import subprocess
+import time
 
-class RPCTestCase(unittest.TestCase):
+import jsonrpyc
+
+from .base import TestCase
+
+
+class RPCTestCase(TestCase):
 
     def __init__(self, *args, **kwargs):
-        super(RPCTestCase, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         cwd = os.path.dirname(os.path.abspath(__file__))
-        self.p = Popen(["python", "server/simple.py", "start"], stdin=PIPE, stdout=PIPE, cwd=cwd)
+        self.p = subprocess.Popen(["python", "server/simple.py", "start"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, cwd=cwd)
 
         self.rpc = jsonrpyc.RPC(stdout=self.p.stdin, stdin=self.p.stdout)
 
@@ -44,42 +43,42 @@ class RPCTestCase(unittest.TestCase):
         for _ in range(5):
             if self.rpc.watchdog._stop.is_set():
                 break
-            sleep(0.05)
-        self.assertTrue(self.rpc.watchdog._stop.is_set())
+            time.sleep(0.05)
+        assert self.rpc.watchdog._stop.is_set()
 
     def test_request_wo_args(self):
         def cb(err, one):
-            self.assertEqual(err, None)
-            self.assertEqual(one, 1)
+            assert err is None
+            assert one == 1
 
         self.rpc("one", callback=cb)
 
-        self.assertEqual(self.rpc("one", block=0.1), 1)
+        assert self.rpc("one", block=0.1) == 1
 
     def test_request_w_args(self):
         def cb(err, twice):
-            self.assertEqual(err, None)
-            self.assertEqual(twice, 84)
+            assert err is None
+            assert twice == 84
 
         self.rpc("twice", args=(42,), callback=cb)
 
-        self.assertEqual(self.rpc("twice", args=(42,), block=0.1), 84)
+        assert self.rpc("twice", args=(42,), block=0.1) == 84
 
     def test_request_arguments(self):
         args = (1, None, True)
         kwargs = {"a": {}, "b": [1, 2]}
 
         def cb(err, n):
-            self.assertEqual(err, None)
-            self.assertEqual(n, 5)
+            assert err is None
+            assert n == 5
 
         self.rpc("arglen", args=args, kwargs=kwargs, callback=cb)
 
-        self.assertEqual(self.rpc("arglen", args=args, kwargs=kwargs, block=0.1), 5)
+        assert self.rpc("arglen", args=args, kwargs=kwargs, block=0.1) == 5
 
     def test_request_error(self):
         def cb(err, *args):
-            self.assertIsInstance(err, jsonrpyc.RPCInternalError)
+            assert isinstance(err, jsonrpyc.RPCInternalError)
 
         self.rpc("one", args=(27,), callback=cb)
 
@@ -89,4 +88,4 @@ class RPCTestCase(unittest.TestCase):
         except Exception as e:
             err = e
         finally:
-            self.assertIsInstance(err, jsonrpyc.RPCInternalError)
+            assert isinstance(err, jsonrpyc.RPCInternalError)
