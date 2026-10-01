@@ -327,13 +327,14 @@ class RPC:
         if stdin is None:
             stdin = sys.stdin
         self.original_stdin = stdin
-        self.stdin = open(stdin.fileno(), "rb")
+        # the descriptor is owned by the original stream, so do not close it when this object is collected
+        self.stdin = open(stdin.fileno(), "rb", closefd=False)
 
         # open output stream
         if stdout is None:
             stdout = sys.stdout
         self.original_stdout = stdout
-        self.stdout = open(stdout.fileno(), "wb")
+        self.stdout = open(stdout.fileno(), "wb", closefd=False)
 
         # other attributes
         self._i = -1
