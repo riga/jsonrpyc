@@ -685,7 +685,7 @@ class Watchdog(threading.Thread):
         # read new incoming lines
         last_pos = 0
         while not self._stop_event.is_set():
-            lines = None
+            lines = []
 
             # stop when stdin is closed
             if self.rpc.stdin.closed:
@@ -710,15 +710,13 @@ class Watchdog(threading.Thread):
                     # prevent residual race conditions occurring when stdin is closed externally
                     pass
 
+            # decode and remove empty lines
+            lines = [line for line in (line.decode("utf-8").strip() for line in lines) if line]
+
             # handle new lines if any
             if lines:
-                for b_line in lines:
-                    if not b_line:
-                        self.stop()
-                    else:
-                        line = b_line.decode("utf-8").strip()
-                        if line:
-                            self.rpc._handle(line)
+                for line in lines:
+                    self.rpc._handle(line)
             else:
                 self._stop_event.wait(self.interval)
 
