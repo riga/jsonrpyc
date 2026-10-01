@@ -32,6 +32,10 @@ class RPCTestCase(TestCase):
         self.rpc = jsonrpyc.RPC(stdout=self.p.stdin, stdin=self.p.stdout)
 
     def __del__(self):
+        # guard fast deletion
+        if getattr(self, "p", None) is None:
+            return
+
         for stream in (self.p.stdin, self.p.stdout):
             if stream is not None:
                 with contextlib.suppress(OSError):
