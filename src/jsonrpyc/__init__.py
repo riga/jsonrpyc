@@ -2,9 +2,7 @@ from __future__ import annotations
 
 __all__: list[str] = []
 
-import io
 import json
-import os
 import sys
 import threading
 import time
@@ -41,35 +39,10 @@ class InputStream(Protocol):
     def closed(self) -> bool:
         ...
 
-    def isatty(self) -> bool:
-        ...
-
-    def tell(self) -> int:
-        ...
-
-    def seek(self, offset: int, whence: int = os.SEEK_SET, /) -> int:
-        ...
-
-    def readline(self) -> str:
-        ...
-
-    def readlines(self) -> list[str]:
-        ...
-
 
 class OutputStream(Protocol):
 
     def fileno(self) -> int:
-        ...
-
-    @property
-    def closed(self) -> bool:
-        ...
-
-    def write(self, b: str) -> int:
-        ...
-
-    def flush(self) -> None:
         ...
 
 
@@ -136,10 +109,9 @@ class Spec:
     def request(
         cls,
         method: str,
-        /,
         id: str | int | None = None,
         *,
-        params: dict[str, Any] | None = None,
+        params: Any = None,
     ) -> str:
         """
         Creates the string representation of a request that calls *method* with optional *params* which are encoded by
@@ -355,13 +327,13 @@ class RPC:
         if stdin is None:
             stdin = sys.stdin
         self.original_stdin = stdin
-        self.stdin = io.open(stdin.fileno(), "rb")
+        self.stdin = open(stdin.fileno(), "rb")
 
         # open output stream
         if stdout is None:
             stdout = sys.stdout
         self.original_stdout = stdout
-        self.stdout = io.open(stdout.fileno(), "wb")
+        self.stdout = open(stdout.fileno(), "wb")
 
         # other attributes
         self._i = -1
@@ -379,11 +351,27 @@ class RPC:
         if watchdog:
             watchdog.stop()
 
-    def __call__(self, *args, **kwargs) -> None:
+    def __call__(
+        self,
+        method: str,
+        args: tuple[Any, ...] = (),
+        kwargs: dict | None = None,
+        *,
+        callback: Callback | None = None,
+        block: int | float = 0,
+        timeout: int | float = 0,
+    ) -> Any:
         """
         Shorthand for :py:meth:`call`.
         """
-        return self.call(*args, **kwargs)
+        return self.call(
+            method,
+            args=args,
+            kwargs=kwargs,
+            callback=callback,
+            block=block,
+            timeout=timeout,
+        )
 
     def call(
         self,
@@ -392,9 +380,9 @@ class RPC:
         kwargs: dict | None = None,
         *,
         callback: Callback | None = None,
-        block: int = 0,
-        timeout: float | int = 0,
-    ) -> None:
+        block: int | float = 0,
+        timeout: int | float = 0,
+    ) -> Any:
         """
         Performs an actual remote procedure call by writing a request representation (a string) to the output stream.
         The remote RPC instance uses *method* to route to the actual method to call with *args* and *kwargs*.
@@ -412,7 +400,7 @@ class RPC:
         :param callback: The callback function.
         :param block: The poll interval in seconds.
         :param timeout: The timeout in seconds.
-        :return: None.
+        :return: None if block is non-positive, otherwise the result of the remote call.
         :raises TimeoutError: When the request times out.
         """
         starting_time = time.monotonic()
@@ -459,6 +447,8 @@ class RPC:
                         raise TimeoutError("RPC Request timed out")
 
                 time.sleep(block)
+
+        return None
 
     def _handle(self, line: str) -> None:
         """
@@ -670,47 +660,36 @@ class Watchdog(threading.Thread):
         # reset the stop event
         self._stop_event.clear()
 
-        # stop here when stdin is not set or closed
-        if self.rpc.stdin is None or self.rpc.stdin.closed:
+        # stop here when stdin is not set
+        if self.rpc.stdin is None:
             return
 
         # read new incoming lines
-        last_pos = 0
         while not self._stop_event.is_set():
-            lines = []
-
             # stop when stdin is closed
             if self.rpc.stdin.closed:
                 break
 
             # Keep linter happy
-            if self.rpc.original_stdin and self.rpc.original_stdin.closed:  # type: ignore[attr-defined] # noqa
+            if self.rpc.original_stdin and self.rpc.original_stdin.closed:
                 break
 
-            # read from stdin depending on whether it is a tty or not
-            if self.rpc.stdin.isatty():
-                cur_pos = self.rpc.stdin.tell()
-                if cur_pos != last_pos:
-                    self.rpc.stdin.seek(last_pos)
-                    lines = self.rpc.stdin.readlines()
-                    last_pos = self.rpc.stdin.tell()
-                    self.rpc.stdin.seek(cur_pos)
-            else:
-                try:
-                    lines = [self.rpc.stdin.readline()]
-                except IOError:
-                    # prevent residual race conditions occurring when stdin is closed externally
-                    pass
-
-            # decode and remove empty lines
-            lines = [line for line in (line.decode("utf-8").strip() for line in lines) if line]
-
-            # handle new lines if any
-            if lines:
-                for line in lines:
-                    self.rpc._handle(line)
-            else:
+            # read the next line from stdin
+            try:
+                line = self.rpc.stdin.readline()
+            except OSError:
+                # prevent residual race conditions occurring when stdin is closed externally
                 self._stop_event.wait(self.interval)
+                continue
+
+            # an empty read (without newline) signals EOF, i.e., the other end closed the stream
+            if not line:
+                self.stop()
+                break
+
+            # decode and handle the line unless it is empty
+            if (s_line := line.decode("utf-8").strip()):
+                self.rpc._handle(s_line)
 
 
 class RPCError(Exception):

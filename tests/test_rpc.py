@@ -6,6 +6,7 @@ from __future__ import annotations
 
 __all__ = ["RPCTestCase"]
 
+import contextlib
 import os
 import subprocess
 import time
@@ -21,19 +22,20 @@ class RPCTestCase(TestCase):
         super().__init__(*args, **kwargs)
 
         cwd = os.path.dirname(os.path.abspath(__file__))
-        self.p = subprocess.Popen(["python", "server/simple.py", "start"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, cwd=cwd)
+        self.p = subprocess.Popen(
+            ["python", "server/simple.py", "start"],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            cwd=cwd,
+        )
 
         self.rpc = jsonrpyc.RPC(stdout=self.p.stdin, stdin=self.p.stdout)
 
     def __del__(self):
-        try:
-            self.p.stdin.close()
-        except OSError:
-            pass
-        try:
-            self.p.stdout.close()
-        except OSError:
-            pass
+        for stream in (self.p.stdin, self.p.stdout):
+            if stream is not None:
+                with contextlib.suppress(OSError):
+                    stream.close()
         self.p.terminate()
         self.p.wait()
 
@@ -41,10 +43,10 @@ class RPCTestCase(TestCase):
         self.p.terminate()
         self.p.wait(timeout=1)
         for _ in range(5):
-            if self.rpc.watchdog._stop.is_set():
+            if self.rpc.watchdog._stop_event.is_set():
                 break
             time.sleep(0.05)
-        assert self.rpc.watchdog._stop.is_set()
+        assert self.rpc.watchdog._stop_event.is_set()
 
     def test_request_wo_args(self):
         def cb(err, one):
