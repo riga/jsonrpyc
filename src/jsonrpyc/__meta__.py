@@ -1,5 +1,3 @@
-# coding: utf-8
-
 """
 Minimal python RPC implementation in a single file based on the JSON-RPC 2.0 specs from
 http://www.jsonrpc.org/specification.

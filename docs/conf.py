@@ -1,10 +1,10 @@
-# coding: utf-8
+from __future__ import annotations
 
 import sys
 import os
 
-thisdir = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.dirname(thisdir))
+docsdir = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.normpath(os.path.join(docsdir, "..", "src")))
 
 import jsonrpyc as jp
 
@@ -23,29 +23,37 @@ master_doc = "index"
 source_suffix = ".rst"
 pygments_style = "sphinx"
 add_module_names = False
+exclude_patterns: list[str] = []
 
 html_title = f"{project} v{version}"
 html_logo = "../assets/logo.png"
 html_favicon = "../assets/favicon.ico"
 html_theme = "sphinx_book_theme"
-html_theme_options = {
-    "show_toc_level": 4,
+html_theme_options.update({
+    "home_page_in_toc": True,
+    "show_navbar_depth": 2,
     "repository_url": "https://github.com/riga/jsonrpyc",
     "use_repository_button": True,
     "use_issues_button": True,
     "use_edit_page_button": True,
-}
+})
 
 extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.intersphinx",
     "sphinx.ext.viewcode",
     "sphinx.ext.autosectionlabel",
+    "autodocsumm",
     "myst_parser",
     "sphinx_lfs_content",
 ]
 
-autodoc_member_order = "bysource"
+autodoc_default_options = {
+    "member-order": "bysource",
+    "show-inheritance": True,
+}
+
+intersphinx_mapping = {"python": ("https://docs.python.org/3", None)}
 
 
 def setup(app):
