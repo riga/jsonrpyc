@@ -24,7 +24,7 @@ repos:
     hooks:
       - id: mypy
         name: mypy
-        language: python
+        language: system
         types_or: [python, pyi]
         entry: mypy
         pass_filenames: false

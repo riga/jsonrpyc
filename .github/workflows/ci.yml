@@ -8,6 +8,10 @@ on:
   workflow_dispatch:
   pull_request:
   push:
+    branches: [master]
+
+permissions:
+  contents: read
 
 jobs:
   lint_typecheck:
@@ -20,13 +24,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
 
       - name: Setup python
         uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
 
       - name: Install
         run: |
@@ -57,13 +61,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
 
       - name: Setup python
         uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
 
       - name: Install
         run: |
