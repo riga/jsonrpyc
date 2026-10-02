@@ -45,8 +45,13 @@ Original source hosted at [GitHub](https://github.com/riga/jsonrpyc).
 ``jsonrpyc.RPC`` instances basically wrap an input stream and an output stream in order to communicate with other *services*.
 A service is not even forced to be written in Python as long as it strictly implements the JSON-RPC 2.0 specs.
 A suitable implementation for NodeJs is [node-json-rpc](https://github.com/riga/node-json-rpc).
+
+Request parameters can be passed as a plain list (positional arguments) or object (keyword arguments), or in the ``{"args": [...], "kwargs": {...}}`` format used by jsonrpyc itself.
+
 A ``jsonrpyc.RPC`` instance may wrap a *target* object.
-Incomming requests will be routed to methods of this object whose result might be sent back as a response. Example implementation:
+Incoming requests will be routed to methods of this object whose result might be sent back as a response.
+Nested attributes can be addressed via dots (e.g. ``"sub.method"``), while attributes starting with two underscores are not accessible.
+Example implementation:
 
 ### ``server.py``
 
@@ -96,6 +101,7 @@ rpc("greet", args=("John",), callback=cb)
 # shutdown
 #
 
+rpc.close()
 p.stdin.close()
 p.stdout.close()
 p.terminate()
