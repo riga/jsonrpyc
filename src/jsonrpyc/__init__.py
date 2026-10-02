@@ -1,8 +1,24 @@
 from __future__ import annotations
 
-__all__: list[str] = []
+__all__: list[str] = [
+    "RPC",
+    "RPCError",
+    "RPCInternalError",
+    "RPCInvalidParams",
+    "RPCInvalidRequest",
+    "RPCMethodNotFound",
+    "RPCParseError",
+    "RPCServerError",
+    "Spec",
+    "Watchdog",
+    "register_error",
+]
 
+import inspect
 import json
+import logging
+import os
+import select
 import sys
 import threading
 import time
@@ -28,6 +44,11 @@ from jsonrpyc.__meta__ import (  # ruff: ignore[unused-import]
 )
 
 Callback: TypeAlias = Callable[[Optional[Exception], Any], None]  # ruff: ignore[non-pep604-annotation-optional]
+
+logger = logging.getLogger(__name__)
+
+# pipes are not selectable on windows
+_can_select = sys.platform != "win32"
 
 
 class InputStream(Protocol):
@@ -55,7 +76,7 @@ class Spec:
     .. code-block:: python
 
         Spec.request("my_method", 18)  # the id is optional
-        # => '{"jsonrpc":"2.0","method":"my_method","id": 18}'
+        # => '{"jsonrpc":"2.0","method":"my_method","id":18}'
 
         Spec.response(18, "some_result")
         # => '{"jsonrpc":"2.0","id":18,"result":"some_result"}'
@@ -68,14 +89,16 @@ class Spec:
     def check_id(cls, id: str | int | None, *, allow_empty: bool = False) -> None:
         """
         Value check for *id* entries. When *allow_empty* is *True*, *id* is allowed to be *None*. Raises a *TypeError*
-        when *id* is neither an integer nor a string.
+        when *id* is neither an integer nor a string (booleans are rejected as well).
 
         :param id: The id to check.
         :param allow_empty: Whether *id* is allowed to be *None*.
         :return: None.
         :raises TypeError: When *id* is invalid.
         """
-        if (id is not None or not allow_empty) and not isinstance(id, (int, str)):
+        if id is None and allow_empty:
+            return
+        if isinstance(id, bool) or not isinstance(id, (int, str)):
             raise TypeError(f"id must be an integer or string, got {id} ({type(id)})")
 
     @classmethod
@@ -93,8 +116,8 @@ class Spec:
     @classmethod
     def check_code(cls, code: int, /) -> None:
         """
-        Value check for *code* entries. Raises a *TypeError* when *code* is not an integer, or a *KeyError* when there
-        is no :py:class:`RPCError` subclass registered for that *code*.
+        Value check for *code* entries. Raises a *TypeError* when *code* is not an integer or when there is no
+        :py:class:`RPCError` subclass registered for that *code*.
 
         :param code: The error code to check.
         :return: None.
@@ -131,14 +154,11 @@ class Spec:
             raise RPCInvalidRequest(str(e)) from e
 
         # start building the request string
-        req = f"{{\"jsonrpc\":\"2.0\",\"method\":\"{method}\""
+        req = f"{{\"jsonrpc\":\"2.0\",\"method\":{json.dumps(method)}"
 
         # add the id when given
         if id is not None:
-            # encode string ids
-            if isinstance(id, str):
-                id = json.dumps(id)
-            req += f",\"id\":{id}"
+            req += f",\"id\":{json.dumps(id)}"
 
         # add parameters when given
         if params is not None:
@@ -155,7 +175,7 @@ class Spec:
     @classmethod
     def response(cls, id: str | int | None, result: Any, /) -> str:
         """
-        Creates the string representation of a respone that was triggered by a request with *id*. A *result* is
+        Creates the string representation of a response that was triggered by a request with *id*. A *result* is
         required, even if it is *None*.
 
         :param id: The id of the request that triggered this response.
@@ -169,13 +189,9 @@ class Spec:
         except Exception as e:
             raise RPCInvalidRequest(str(e)) from e
 
-        # encode string ids
-        if isinstance(id, str):
-            id = json.dumps(id)
-
         # build the response string
         try:
-            res = f"{{\"jsonrpc\":\"2.0\",\"id\":{id},\"result\":{json.dumps(result)}}}"
+            res = f"{{\"jsonrpc\":\"2.0\",\"id\":{json.dumps(id)},\"result\":{json.dumps(result)}}}"
         except Exception as e:
             raise RPCParseError(str(e)) from e
 
@@ -190,9 +206,10 @@ class Spec:
         data: Any | None = None,
     ) -> str:
         """
-        Creates the string representation of an error that occured while processing a request with *id*. *code* must
-        lead to a registered :py:class:`RPCError`. *data* might contain additional, detailed error information and is
-        encoded by ``json.dumps`` when set.
+        Creates the string representation of an error that occurred while processing a request with *id*. *id* might be
+        *None* when the id of the request could not be determined, e.g. for parse errors. *code* must lead to a
+        registered :py:class:`RPCError`. *data* might contain additional, detailed error information and is encoded by
+        ``json.dumps`` when set.
 
         :param id: The id of the request that triggered this error.
         :param code: The error code.
@@ -202,14 +219,14 @@ class Spec:
         :raises RPCParseError: When *data* could not be encoded.
         """
         try:
-            cls.check_id(id)
+            cls.check_id(id, allow_empty=True)
             cls.check_code(code)
         except Exception as e:
             raise RPCInvalidRequest(str(e)) from e
 
         # build the inner error data
         message = get_error(code).title  # type: ignore[union-attr]
-        err_data = f"{{\"code\":{code},\"message\":\"{message}\""
+        err_data = f"{{\"code\":{code},\"message\":{json.dumps(message)}"
 
         # insert data when given
         if data is not None:
@@ -220,12 +237,8 @@ class Spec:
         else:
             err_data += "}"
 
-        # encode string ids
-        if isinstance(id, str):
-            id = json.dumps(id)
-
-        # start building the error string
-        err = f"{{\"jsonrpc\":\"2.0\",\"id\":{id},\"error\":{err_data}}}"
+        # build the error string
+        err = f"{{\"jsonrpc\":\"2.0\",\"id\":{json.dumps(id)},\"error\":{err_data}}}"
 
         return err
 
@@ -257,7 +270,7 @@ class RPC:
             def greet(self, name):
                 return f"Hi, {name}!"
 
-        jsonrpc.RPC(MyTarget())
+        jsonrpyc.RPC(MyTarget())
 
     *client.py*
 
@@ -272,7 +285,7 @@ class RPC:
         # non-blocking remote procedure call with callback and js-like signature
         def cb(err, res=None):
             if err:
-                throw err
+                raise err
             print(f"callback got: {res}")
 
         rpc("greet", args=("John",), callback=cb)
@@ -284,7 +297,8 @@ class RPC:
         print(rpc("greet", args=("John",), block=0.1))
         # => "Hi, John!"
 
-        # shutdown the process
+        # shutdown the rpc and the process
+        rpc.close()
         p.stdin.close()
         p.stdout.close()
         p.terminate()
@@ -305,6 +319,8 @@ class RPC:
     .. py:attribute:: watch
 
         The :py:class:`Watchdog` instance that optionally watches *stdin* and dispatches incoming requests.
+
+    Instances can be used as context managers, calling :py:meth:`close` on exit.
     """
 
     EMPTY_RESULT = object()
@@ -341,8 +357,12 @@ class RPC:
         self._callbacks: dict[int, Callback] = {}
         self._results: dict[int, Any] = {}
 
-        # create and optionall start the watchdog
-        watch_kwargs = watch_kwargs or {}
+        # locks guarding the id counter and registries, and writes to the output stream
+        self._lock = threading.Lock()
+        self._write_lock = threading.Lock()
+
+        # create and optionally start the watchdog
+        watch_kwargs = dict(watch_kwargs or {})
         watch_kwargs["start"] = watch
         watch_kwargs.setdefault("daemon", target is None)
         self.watchdog = Watchdog(self, **watch_kwargs)
@@ -352,15 +372,34 @@ class RPC:
         if watchdog:
             watchdog.stop()
 
+    def __enter__(self) -> RPC:
+        return self
+
+    def __exit__(self, *args: Any) -> None:
+        self.close()
+
+    def close(self, timeout: float | None = None) -> None:
+        """
+        Stops the watchdog and waits for it to finish for at most *timeout* seconds (indefinitely when *None*). On
+        Windows, a watchdog that is waiting for input only finishes once new content or EOF is received, so passing a
+        *timeout* is recommended there.
+
+        :param timeout: The maximum time in seconds to wait for the watchdog to finish.
+        :return: None.
+        """
+        self.watchdog.stop()
+        if self.watchdog.is_alive() and self.watchdog is not threading.current_thread():
+            self.watchdog.join(timeout)
+
     def __call__(
         self,
         method: str,
         args: tuple[Any, ...] = (),
-        kwargs: dict | None = None,
+        kwargs: dict[str, Any] | None = None,
         *,
         callback: Callback | None = None,
-        block: int | float = 0,
-        timeout: int | float = 0,
+        block: float = 0,
+        timeout: float = 0,
     ) -> Any:
         """
         Shorthand for :py:meth:`call`.
@@ -378,11 +417,11 @@ class RPC:
         self,
         method: str,
         args: tuple[Any, ...] = (),
-        kwargs: dict | None = None,
+        kwargs: dict[str, Any] | None = None,
         *,
         callback: Callback | None = None,
-        block: int | float = 0,
-        timeout: int | float = 0,
+        block: float = 0,
+        timeout: float = 0,
     ) -> Any:
         """
         Performs an actual remote procedure call by writing a request representation (a string) to the output stream.
@@ -390,7 +429,7 @@ class RPC:
 
         When *callback* is set, it will be called with the result of the remote call. When *block* is larger than *0*,
         the calling thread is blocked until the result is received. In this case, *block* will be the poll interval,
-        emulating synchronuous return value behavior. When both *callback* is *None* and *block* is *0* or smaller, the
+        emulating synchronous return value behavior. When both *callback* is *None* and *block* is *0* or smaller, the
         request is considered a notification and the remote RPC instance will not send a response.
 
         If *timeout* is not zero, raise TimeoutError after *timeout* seconds with no response.
@@ -413,74 +452,135 @@ class RPC:
         # check if the call is a notification
         is_notification = callback is None and block <= 0
 
-        # create a new id for requests expecting a response
-        id = -1
-        if not is_notification:
+        # notifications have no id, all other requests get a new one
+        if is_notification:
+            req = Spec.request(method, params={"args": args, "kwargs": kwargs})
+            self._write(req)
+            return None
+
+        with self._lock:
             self._i += 1
             id = self._i
 
-        # register the callback
-        if callback is not None:
-            self._callbacks[id] = callback
+            # register the callback
+            if callback is not None:
+                self._callbacks[id] = callback
 
-        # store an empty result for the meantime
-        if block > 0:
-            self._results[id] = self.EMPTY_RESULT
+            # store an empty result for the meantime
+            if block > 0:
+                self._results[id] = self.EMPTY_RESULT
 
-        # create the request
-        params = {"args": args, "kwargs": kwargs}
-        req = Spec.request(method, id=id, params=params)
-        self._write(req)
+        try:
+            # create and send the request
+            req = Spec.request(method, id=id, params={"args": args, "kwargs": kwargs})
+            self._write(req)
 
-        # blocking return value behavior
-        if block > 0:
+            # non-blocking behavior
+            if block <= 0:
+                return None
+
+            # blocking return value behavior
             while True:
-                if self._results[id] != self.EMPTY_RESULT:
-                    result = self._results[id]
-                    del self._results[id]
+                result = self._results[id]
+                if result is not self.EMPTY_RESULT:
                     if isinstance(result, Exception):
                         raise result
                     return result
 
-                if timeout:
-                    elapsed = time.monotonic() - starting_time
-                    if elapsed > timeout:
-                        raise TimeoutError("RPC Request timed out")
+                if timeout and time.monotonic() - starting_time > timeout:
+                    raise TimeoutError("RPC request timed out")
 
                 time.sleep(block)
 
-        return None
+        except BaseException:
+            # the response will not be awaited anymore
+            with self._lock:
+                self._callbacks.pop(id, None)
+            raise
+
+        finally:
+            with self._lock:
+                self._results.pop(id, None)
 
     def _handle(self, line: str) -> None:
         """
-        Handles an incoming *line* and dispatches the parsed object to the request, response, or error handlers.
+        Handles an incoming *line* and dispatches the parsed object to the request, response, or error handlers. Lines
+        that cannot be parsed or that do not contain a JSON object are answered with an error whose id is *null*.
 
         :param line: The incoming line.
         :return: None.
         """
-        obj = json.loads(line)
+        try:
+            obj = json.loads(line)
+        except ValueError as e:
+            self._write(Spec.error(None, RPCParseError.code, data=str(e)))
+            return
 
         # dispatch to the correct handler
-        if "method" in obj:
+        if not isinstance(obj, dict):
+            self._write(Spec.error(None, RPCInvalidRequest.code, data="expected a JSON object"))
+        elif "method" in obj:
             # request
             self._handle_request(obj)
-        elif "error" not in obj:
+        elif "result" in obj:
             # response
             self._handle_response(obj)
-        else:
+        elif "error" in obj:
             # error
             self._handle_error(obj)
+        else:
+            logger.warning(f"ignoring invalid JSON-RPC object: {line}")
+
+    @classmethod
+    def _parse_params(cls, params: Any) -> tuple[list[Any], dict[str, Any]]:
+        """
+        Converts the *params* of an incoming request into positional and keyword arguments. Besides the
+        ``{"args": [...], "kwargs": {...}}`` format used by jsonrpyc, plain lists (positional arguments) and objects
+        (keyword arguments) as well as missing parameters are supported for compatibility with other implementations.
+
+        :param params: The parameters of the request.
+        :return: A tuple of positional and keyword arguments.
+        :raises RPCInvalidParams: When *params* is neither a list nor a dictionary.
+        """
+        if params is None:
+            return [], {}
+        if isinstance(params, list):
+            return params, {}
+        if isinstance(params, dict):
+            if (
+                set(params) == {"args", "kwargs"} and
+                isinstance(params["args"], list) and
+                isinstance(params["kwargs"], dict)
+            ):
+                return params["args"], params["kwargs"]
+            return [], params
+        raise RPCInvalidParams(data=f"params must be a list or an object, got {params!r}")
 
     def _handle_request(self, req: dict[str, Any]) -> None:
         """
-        Handles an incoming request *req*. When it containes an id, a response or error is sent back.
+        Handles an incoming request *req*. When it contains an id, a response or error is sent back.
 
         :param req: The incoming request.
         :return: None.
         """
         try:
+            if not isinstance(req["method"], str):
+                raise RPCInvalidRequest(data=f"method must be a string, got {req['method']!r}")
             method = self._route(req["method"])
-            result = method(*req["params"]["args"], **req["params"]["kwargs"])
+            args, kwargs = self._parse_params(req.get("params"))
+
+            # check if the arguments match the signature to distinguish invalid params from internal errors
+            try:
+                signature = inspect.signature(method)
+            except (TypeError, ValueError):
+                pass
+            else:
+                try:
+                    signature.bind(*args, **kwargs)
+                except TypeError as e:
+                    raise RPCInvalidParams(data=str(e)) from e
+
+            result = method(*args, **kwargs)
             if "id" in req:
                 res = Spec.response(req["id"], result)
                 self._write(res)
@@ -500,14 +600,14 @@ class RPC:
         :param res: The incoming response.
         :return: None.
         """
-        # set the result
-        if res["id"] in self._results:
-            self._results[res["id"]] = res["result"]
+        # set the result and lookup the callback
+        with self._lock:
+            if res["id"] in self._results:
+                self._results[res["id"]] = res["result"]
+            callback = self._callbacks.pop(res["id"], None)
 
-        # lookup and invoke the callback
-        if res["id"] in self._callbacks:
-            callback = self._callbacks[res["id"]]
-            del self._callbacks[res["id"]]
+        # invoke the callback
+        if callback is not None:
             callback(None, res["result"])
 
     def _handle_error(self, res: dict[str, Any]) -> None:
@@ -520,21 +620,28 @@ class RPC:
         """
         # extract the error and create an actual error instance to raise
         err = res["error"]
-        error = get_error(err["code"])(err.get("data", err["message"]))
+        data = err.get("data", err.get("message"))
+        try:
+            error = get_error(err["code"])(data)
+        except (TypeError, ValueError):
+            # fallback for codes without registered error class, e.g. application-defined ones
+            error = RPCError(data, code=err["code"], title=err.get("message", "Unknown error"))
 
-        # set the error
-        if res["id"] in self._results:
-            self._results[res["id"]] = error
+        # set the error and lookup the callback
+        with self._lock:
+            if res["id"] in self._results:
+                self._results[res["id"]] = error
+            callback = self._callbacks.pop(res["id"], None)
 
-        # lookup and invoke the callback
-        if res["id"] in self._callbacks:
-            callback = self._callbacks[res["id"]]
-            del self._callbacks[res["id"]]
+        # invoke the callback
+        if callback is not None:
             callback(error, None)
 
     def _route(self, method: str) -> Any:
         """
-        Returnes the method of the wrapped target object to be called when *method* is requested.
+        Returns the method of the wrapped target object to be called when *method* is requested. For security
+        reasons, attributes starting with two underscores (e.g. dunder or name-mangled attributes) are not accessible
+        and the resolved object must be callable.
 
         :param method: The method to route to.
         :return: The method to call.
@@ -544,11 +651,11 @@ class RPC:
 
         .. code-block:: python
 
-            MyClassB(object):
+            class MyClassB(object):
                 def foo(self):
                     return 123
 
-            MyClassA(object):
+            class MyClassA(object):
                 def __init__(self):
                     self.b = MyClassB()
 
@@ -563,14 +670,18 @@ class RPC:
             rpc._route("b.foo")
             # => <bound method MyClassB.foo ...>
         """
-        # recursively traverse target attributes
+        # recursively traverse public target attributes
+        missing = object()
         obj = self.target
         for part in method.split("."):
-            if not hasattr(obj, part):
+            if not part or part.startswith("__"):
                 break
-            obj = getattr(obj, part)
+            obj = getattr(obj, part, missing)
+            if obj is missing:
+                break
         else:
-            return obj
+            if callable(obj):
+                return obj
 
         raise RPCMethodNotFound(data=method)
 
@@ -581,8 +692,9 @@ class RPC:
         :param s: The string to write.
         :return: None.
         """
-        self.stdout.write(bytearray(f"{s}\n", "utf-8"))
-        self.stdout.flush()
+        with self._write_lock:
+            self.stdout.write(f"{s}\n".encode())
+            self.stdout.flush()
 
 
 class Watchdog(threading.Thread):
@@ -617,7 +729,7 @@ class Watchdog(threading.Thread):
         self,
         rpc: RPC,
         name: str = "watchdog",
-        interval: float | int = 0.1,
+        interval: float = 0.1,
         daemon: bool = False,
         start: bool = True,
     ) -> None:
@@ -645,7 +757,8 @@ class Watchdog(threading.Thread):
 
     def stop(self) -> None:
         """
-        Stops the thread's activity.
+        Stops the thread's activity. While waiting for input, the run loop notices this within *interval* seconds,
+        except on Windows where it only does so once new content or EOF is received.
 
         :return: None.
         """
@@ -661,36 +774,49 @@ class Watchdog(threading.Thread):
         # reset the stop event
         self._stop_event.clear()
 
-        # stop here when stdin is not set
-        if self.rpc.stdin is None:
-            return
-
         # read new incoming lines
+        buffer = b""
         while not self._stop_event.is_set():
             # stop when stdin is closed
-            if self.rpc.stdin.closed:
+            if self.rpc.stdin.closed or self.rpc.original_stdin.closed:
                 break
 
-            # Keep linter happy
-            if self.rpc.original_stdin and self.rpc.original_stdin.closed:
-                break
-
-            # read the next line from stdin
+            # read the next chunk from stdin
             try:
-                line = self.rpc.stdin.readline()
-            except OSError:
+                fd = self.rpc.stdin.fileno()
+                # wait for content in intervals so that stopping takes effect while idle
+                if _can_select and not select.select([fd], [], [], self.interval)[0]:
+                    continue
+                chunk = os.read(fd, 65536)
+            except (OSError, ValueError):
                 # prevent residual race conditions occurring when stdin is closed externally
                 self._stop_event.wait(self.interval)
                 continue
 
-            # an empty read (without newline) signals EOF, i.e., the other end closed the stream
-            if not line:
+            # an empty read signals EOF, i.e., the other end closed the stream
+            if not chunk:
+                self._handle_line(buffer)
                 self.stop()
                 break
 
-            # decode and handle the line unless it is empty
+            # handle all complete lines and keep the remainder
+            *lines, buffer = (buffer + chunk).split(b"\n")
+            for line in lines:
+                self._handle_line(line)
+
+    def _handle_line(self, line: bytes) -> None:
+        """
+        Decodes and passes a *line* to the :py:class:`RPC` instance unless it is empty. Exceptions are logged rather
+        than raised to keep the watchdog alive.
+
+        :param line: The line to handle.
+        :return: None.
+        """
+        try:
             if (s_line := line.decode("utf-8").strip()):
                 self.rpc._handle(s_line)
+        except Exception:
+            logger.exception("failed to handle incoming line")
 
 
 class RPCError(Exception):
@@ -717,7 +843,10 @@ class RPCError(Exception):
 
     .. py:attribute:: data
 
-        Additional data of this error. Setting the data attribute will also change the message attribute.
+        Additional data of this error.
+
+    *code* and *title* can be passed to override the class-level defaults, e.g. for errors with codes that have no
+    registered error class.
     """
 
     code_range: tuple[int, int]
@@ -740,7 +869,12 @@ class RPCError(Exception):
             code[0] <= code[1]
         )
 
-    def __init__(self, data: str | None = None) -> None:
+    def __init__(self, data: Any = None, *, code: int | None = None, title: str | None = None) -> None:
+        if code is not None:
+            self.code = code
+        if title is not None:
+            self.title = title
+
         # build the error message
         message = f"{self.title} ({self.code})"
         if data is not None:
@@ -771,15 +905,27 @@ def register_error(cls: type[RPCError]) -> type[RPCError]:
             code_range = (lower_bound, upper_bound)  # both inclusive
             code = code_range[0]  # default code when used as is
             title = "My custom error"
+
+    :param cls: The error class to register.
+    :return: The error class.
+    :raises TypeError: When *cls* is not a subclass of :py:class:`RPCError` or has an invalid code range.
+    :raises ValueError: When the code is not within the code range, or the code range overlaps with that of an already
+        registered error class.
     """
-    if not issubclass(cls, RPCError):
+    if not isinstance(cls, type) or not issubclass(cls, RPCError):
         raise TypeError(f"'{cls}' is not a subclass of RPCError")
 
-    # check duplicates
-    if cls.code in error_map_code:
-        raise AttributeError(f"duplicate RPC error code {cls.code}")
-    if cls.code_range in error_map_code_range:
-        raise AttributeError(f"duplicate RPC error code range {cls.code_range}")
+    # check the code range and code
+    code_range = getattr(cls, "code_range", None)
+    if not cls.is_code_range(code_range):
+        raise TypeError(f"'{cls}' has an invalid code range {code_range}")
+    if not isinstance(cls.code, int) or not code_range[0] <= cls.code <= code_range[1]:  # type: ignore[index]
+        raise ValueError(f"code {cls.code} of '{cls}' is not within its code range {code_range}")
+
+    # check overlaps with registered errors
+    for (lower, upper), other in error_map_code_range.items():
+        if lower <= code_range[1] and code_range[0] <= upper:  # type: ignore[index]
+            raise ValueError(f"code range {code_range} of '{cls}' overlaps with that of '{other}'")
 
     # register
     error_map_code[cls.code] = cls

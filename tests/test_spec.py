@@ -6,6 +6,8 @@ from __future__ import annotations
 
 __all__ = ["SpecTestCase"]
 
+import pytest
+
 import jsonrpyc
 
 from .base import TestCase
@@ -44,3 +46,23 @@ class SpecTestCase(TestCase):
     def test_error_with_data(self):
         err = jsonrpyc.Spec.error(18, -32603, data=[1, 2, True])
         assert err == '{"jsonrpc":"2.0","id":18,"error":{"code":-32603,"message":"Internal error","data":[1, 2, true]}}'
+
+    def test_request_escaped_method(self):
+        req = jsonrpyc.Spec.request('some"method', 18)
+        assert req == '{"jsonrpc":"2.0","method":"some\\"method","id":18}'
+
+    def test_bool_id(self):
+        with pytest.raises(jsonrpyc.RPCInvalidRequest):
+            jsonrpyc.Spec.response(True, None)
+
+    def test_error_without_id(self):
+        err = jsonrpyc.Spec.error(None, -32700)
+        assert err == '{"jsonrpc":"2.0","id":null,"error":{"code":-32700,"message":"Parse error"}}'
+
+    def test_register_overlapping_error(self):
+        with pytest.raises(ValueError, match="overlaps"):
+            @jsonrpyc.register_error
+            class OverlappingError(jsonrpyc.RPCError):
+                code_range = (-32050, -32010)
+                code = code_range[0]
+                title = "Overlapping error"

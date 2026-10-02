@@ -19,6 +19,15 @@ class MyClass:
     def arglen(self, *args, **kwargs):
         return len(args) + len(kwargs)
 
+    def fail(self):
+        raise ValueError("fail")
+
+    def _protected(self):
+        return "protected"
+
+    def __private(self):
+        return "private"
+
 
 def start():
     import jsonrpyc

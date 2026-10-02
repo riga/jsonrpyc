@@ -7,9 +7,12 @@ from __future__ import annotations
 __all__ = ["RPCTestCase"]
 
 import contextlib
+import json
 import os
 import subprocess
 import time
+
+import pytest
 
 import jsonrpyc
 
@@ -84,14 +87,63 @@ class RPCTestCase(TestCase):
 
     def test_request_error(self):
         def cb(err, *args):
-            assert isinstance(err, jsonrpyc.RPCInternalError)
+            assert isinstance(err, jsonrpyc.RPCInvalidParams)
 
         self.rpc("one", args=(27,), callback=cb)
 
-        err = None
-        try:
+        with pytest.raises(jsonrpyc.RPCInvalidParams):
             self.rpc("one", args=(27,), block=0.1)
-        except Exception as e:
-            err = e
-        finally:
-            assert isinstance(err, jsonrpyc.RPCInternalError)
+
+    def test_internal_error(self):
+        with pytest.raises(jsonrpyc.RPCInternalError):
+            self.rpc("fail", block=0.1)
+
+    def test_method_not_found(self):
+        for method in ["unknown", "__private", "__init__", "one.__globals__"]:
+            with pytest.raises(jsonrpyc.RPCMethodNotFound):
+                self.rpc(method, block=0.1)
+
+    def test_single_underscore_method(self):
+        assert self.rpc("_protected", block=0.1) == "protected"
+
+    def test_invalid_lines_keep_server_alive(self):
+        assert self.p.stdin is not None
+        self.p.stdin.write(b"not json\n[1, 2]\n")
+        self.p.stdin.flush()
+        assert self.rpc("one", block=0.1) == 1
+
+    def test_timeout_cleanup(self):
+        def cb(err, res):
+            raise AssertionError("callback must not be called after timeout")
+
+        with pytest.raises(TimeoutError):
+            self.rpc("one", callback=cb, block=0.1, timeout=1e-9)
+        assert not self.rpc._results
+        assert not self.rpc._callbacks
+
+    def test_close(self):
+        self.rpc.close(timeout=1)
+        assert not self.rpc.watchdog.is_alive()
+
+
+class LocalRPCTestCase(TestCase):
+
+    def test_notification_has_no_id(self):
+        r, w = os.pipe()
+        with os.fdopen(r, "rb") as rf, os.fdopen(w, "wb") as wf:
+            rpc = jsonrpyc.RPC(stdin=rf, stdout=wf, watch=False)
+            rpc("notify")
+            assert json.loads(rf.readline()) == {
+                "jsonrpc": "2.0",
+                "method": "notify",
+                "params": {"args": [], "kwargs": {}},
+            }
+
+    def test_parse_params(self):
+        parse = jsonrpyc.RPC._parse_params
+        assert parse(None) == ([], {})
+        assert parse([1, 2]) == ([1, 2], {})
+        assert parse({"a": 1}) == ([], {"a": 1})
+        assert parse({"args": [1], "kwargs": {"b": 2}}) == ([1], {"b": 2})
+        with pytest.raises(jsonrpyc.RPCInvalidParams):
+            parse(1)
